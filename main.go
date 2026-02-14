@@ -131,7 +131,7 @@ func runAPI() {
 	}
 	defer db.Close()
 
-	if err := database.Migrate(db, cfg.Tables); err != nil {
+	if err := database.Migrate(db, cfg.Tables, database.MigrateOptions{}); err != nil {
 		log.Fatalf("failed to run migrations: %v", err)
 	}
 
@@ -223,6 +223,8 @@ func runMigrate() {
 	dbUser := fs.String("db-user", "", "Database username")
 	dbPassword := fs.String("db-password", "", "Database password")
 	dbSSLMode := fs.String("db-sslmode", "disable", "SSL mode")
+	cleanup := fs.Bool("cleanup", false, "Delete tables and indexes not in config")
+	dryRun := fs.Bool("dry-run", false, "Print changes without applying them")
 	fs.Parse(os.Args[2:])
 
 	*configPath = envOrDefault(*configPath, "config.yaml", "ISC_CONFIG")
@@ -263,7 +265,7 @@ func runMigrate() {
 	}
 	defer db.Close()
 
-	if err := database.Migrate(db, cfg.Tables); err != nil {
+	if err := database.Migrate(db, cfg.Tables, database.MigrateOptions{Cleanup: *cleanup, DryRun: *dryRun}); err != nil {
 		log.Fatalf("failed to run migrations: %v", err)
 	}
 

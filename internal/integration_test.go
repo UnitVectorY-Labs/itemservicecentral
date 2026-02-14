@@ -34,10 +34,11 @@ func TestMain(m *testing.M) {
 	// Drop tables if they exist from previous runs
 	testDB.Exec(`DROP TABLE IF EXISTS "items"`)
 	testDB.Exec(`DROP TABLE IF EXISTS "orders"`)
+	testDB.Exec(`DROP TABLE IF EXISTS _meta`)
 
 	tables := testTables()
 
-	if err := database.Migrate(testDB, tables); err != nil {
+	if err := database.Migrate(testDB, tables, database.MigrateOptions{}); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to run migrations: %v\n", err)
 		os.Exit(1)
 	}
@@ -60,6 +61,7 @@ func TestMain(m *testing.M) {
 	testServer.Close()
 	testDB.Exec(`DROP TABLE IF EXISTS "items"`)
 	testDB.Exec(`DROP TABLE IF EXISTS "orders"`)
+	testDB.Exec(`DROP TABLE IF EXISTS _meta`)
 	testDB.Close()
 
 	os.Exit(code)
