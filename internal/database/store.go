@@ -9,6 +9,12 @@ import (
 	"strings"
 )
 
+// cursor is the internal representation of a pagination cursor.
+type cursor struct {
+	PK string
+	RK string
+}
+
 // Store provides CRUD operations against PostgreSQL tables.
 type Store struct {
 	db *sql.DB
@@ -22,7 +28,7 @@ func NewStore(db *sql.DB) *Store {
 // ListOptions controls pagination and range-key filtering for list/scan/query operations.
 type ListOptions struct {
 	Limit        int
-	Cursor       string // base64url-encoded JSON cursor
+	PageToken    string // base64url-encoded pipe-delimited cursor
 	RKBeginsWith string
 	RKGt         string
 	RKGte        string
@@ -37,10 +43,11 @@ type ItemResult struct {
 	Data map[string]interface{}
 }
 
-// ListResult holds a page of items and an optional cursor for the next page.
+// ListResult holds a page of items and optional page tokens for pagination.
 type ListResult struct {
-	Items      []ItemResult
-	NextCursor string // empty if no more pages
+	Items             []ItemResult
+	NextPageToken     string // empty if no more pages
+	PreviousPageToken string // reserved for future use
 }
 
 // IndexQueryConfig describes the key fields for a GSI query.
@@ -49,16 +56,8 @@ type IndexQueryConfig struct {
 	RKField string // empty if pk-only GSI
 }
 
-// cursor is the internal representation of a pagination cursor.
-type cursor struct {
-	PK string `json:"pk"`
-	RK string `json:"rk,omitempty"`
-}
-
 func encodeCursor(pk, rk string) string {
-	c := cursor{PK: pk, RK: rk}
-	b, _ := json.Marshal(c)
-	return base64.RawURLEncoding.EncodeToString(b)
+	return base64.RawURLEncoding.EncodeToString([]byte(pk + "|" + rk))
 }
 
 func decodeCursor(s string) (cursor, error) {
@@ -66,11 +65,11 @@ func decodeCursor(s string) (cursor, error) {
 	if err != nil {
 		return cursor{}, fmt.Errorf("invalid cursor encoding: %w", err)
 	}
-	var c cursor
-	if err := json.Unmarshal(b, &c); err != nil {
-		return cursor{}, fmt.Errorf("invalid cursor format: %w", err)
+	parts := strings.SplitN(string(b), "|", 2)
+	if len(parts) != 2 {
+		return cursor{}, fmt.Errorf("invalid cursor format")
 	}
-	return c, nil
+	return cursor{PK: parts[0], RK: parts[1]}, nil
 }
 
 // GetItem retrieves a single item by PK (and optionally RK).
@@ -165,7 +164,7 @@ func (s *Store) ListItems(ctx context.Context, table string, pk string, hasRK bo
 	argIdx := 2
 
 	where, args, argIdx = appendRKFilters(where, args, argIdx, hasRK, opts)
-	where, args, argIdx = appendCursorFilter(where, args, argIdx, hasRK, opts.Cursor, "rk")
+	where, args, argIdx = appendCursorFilter(where, args, argIdx, hasRK, opts.PageToken, "rk")
 
 	return s.queryItems(ctx, table, where, args, argIdx, opts.Limit, hasRK, "pk", "rk")
 }
@@ -176,7 +175,7 @@ func (s *Store) ScanTable(ctx context.Context, table string, hasRK bool, opts Li
 	var args []interface{}
 	argIdx := 1
 
-	where, args, argIdx = appendCursorFilter(where, args, argIdx, hasRK, opts.Cursor, "rk")
+	where, args, argIdx = appendCursorFilter(where, args, argIdx, hasRK, opts.PageToken, "rk")
 
 	return s.queryItems(ctx, table, where, args, argIdx, opts.Limit, hasRK, "pk", "rk")
 }
@@ -196,7 +195,7 @@ func (s *Store) QueryIndex(ctx context.Context, table string, index IndexQueryCo
 		where, args, argIdx = appendIndexRKFilters(where, args, argIdx, rkExpr, opts)
 	}
 
-	where, args, argIdx = appendCursorFilter(where, args, argIdx, hasRK, opts.Cursor, rkExpr)
+	where, args, argIdx = appendCursorFilter(where, args, argIdx, hasRK, opts.PageToken, rkExpr)
 
 	return s.queryItems(ctx, table, where, args, argIdx, opts.Limit, hasRK, pkExpr, rkExpr)
 }
@@ -217,7 +216,7 @@ func (s *Store) ScanIndex(ctx context.Context, table string, index IndexQueryCon
 		where = append(where, rkExpr+" IS NOT NULL")
 	}
 
-	where, args, argIdx = appendCursorFilter(where, args, argIdx, hasRK, opts.Cursor, rkExpr)
+	where, args, argIdx = appendCursorFilter(where, args, argIdx, hasRK, opts.PageToken, rkExpr)
 
 	return s.queryItems(ctx, table, where, args, argIdx, opts.Limit, hasRK, pkExpr, rkExpr)
 }
@@ -324,7 +323,7 @@ func (s *Store) queryItems(ctx context.Context, table string, where []string, ar
 
 	if hasMore && len(collected) > 0 {
 		last := collected[len(collected)-1]
-		result.NextCursor = encodeCursor(last.pk, last.rk)
+		result.NextPageToken = encodeCursor(last.pk, last.rk)
 	}
 
 	return result, nil

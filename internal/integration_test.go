@@ -212,8 +212,11 @@ func readListBody(t *testing.T, resp *http.Response) ([]interface{}, string) {
 	if !ok {
 		t.Fatalf("expected items array in response, got: %v", body)
 	}
-	nextCursor, _ := body["nextCursor"].(string)
-	return items, nextCursor
+	nextPageToken := ""
+	if meta, ok := body["_meta"].(map[string]interface{}); ok {
+		nextPageToken, _ = meta["nextPageToken"].(string)
+	}
+	return items, nextPageToken
 }
 
 // --- PK-only table tests (items) ---
@@ -458,16 +461,16 @@ func TestScanTable_PKOnly(t *testing.T) {
 	if scanResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200 on scan, got %d", scanResp.StatusCode)
 	}
-	items, nextCursor := readListBody(t, scanResp)
+	items, nextPageToken := readListBody(t, scanResp)
 	if len(items) != 2 {
 		t.Fatalf("expected 2 items in first page, got %d", len(items))
 	}
-	if nextCursor == "" {
-		t.Fatal("expected a nextCursor for pagination")
+	if nextPageToken == "" {
+		t.Fatal("expected a nextPageToken for pagination")
 	}
 
 	// Fetch next page
-	scanResp2 := getItem(t, testServer, "/v1/items/_items?limit=2&cursor="+nextCursor)
+	scanResp2 := getItem(t, testServer, "/v1/items/_items?limit=2&pageToken="+nextPageToken)
 	if scanResp2.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200 on second scan page, got %d", scanResp2.StatusCode)
 	}
@@ -721,12 +724,12 @@ func TestListItems_Pagination(t *testing.T) {
 
 	// Scan with limit=2 and paginate
 	allItems := make([]interface{}, 0)
-	cursor := ""
+	pageToken := ""
 	pages := 0
 	for {
 		url := "/v1/items/_items?limit=2"
-		if cursor != "" {
-			url += "&cursor=" + cursor
+		if pageToken != "" {
+			url += "&pageToken=" + pageToken
 		}
 		resp := getItem(t, testServer, url)
 		if resp.StatusCode != http.StatusOK {
@@ -738,7 +741,7 @@ func TestListItems_Pagination(t *testing.T) {
 		if next == "" {
 			break
 		}
-		cursor = next
+		pageToken = next
 		if pages > 20 {
 			t.Fatal("too many pages, possible infinite loop")
 		}

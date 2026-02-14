@@ -12,8 +12,14 @@ import (
 
 // listResponse is the JSON envelope for list endpoints.
 type listResponse struct {
-	Items      []map[string]interface{} `json:"items"`
-	NextCursor string                   `json:"nextCursor,omitempty"`
+	Items []map[string]interface{} `json:"items"`
+	Meta  *listMeta               `json:"_meta,omitempty"`
+}
+
+// listMeta holds pagination tokens for list responses.
+type listMeta struct {
+	NextPageToken     string `json:"nextPageToken,omitempty"`
+	PreviousPageToken string `json:"previousPageToken,omitempty"`
 }
 
 // handleListItems handles GET /v1/{table}/data/{pk}/_items.
@@ -45,8 +51,8 @@ func (h *Handler) handleListItems(th *tableHandler) http.HandlerFunc {
 
 		items := projectItems(r, result.Items, th, th.config.PrimaryKey.Field, rkField)
 		writeJSON(w, http.StatusOK, listResponse{
-			Items:      items,
-			NextCursor: result.NextCursor,
+			Items: items,
+			Meta:  buildListMeta(result),
 		})
 	}
 }
@@ -70,8 +76,8 @@ func (h *Handler) handleScanTable(th *tableHandler) http.HandlerFunc {
 
 		items := projectItems(r, result.Items, th, th.config.PrimaryKey.Field, rkField)
 		writeJSON(w, http.StatusOK, listResponse{
-			Items:      items,
-			NextCursor: result.NextCursor,
+			Items: items,
+			Meta:  buildListMeta(result),
 		})
 	}
 }
@@ -106,8 +112,8 @@ func (h *Handler) handleQueryIndex(th *tableHandler, idx config.IndexConfig) htt
 
 		items := projectIndexItems(r, result.Items, th, th.config.PrimaryKey.Field, rkField, idx)
 		writeJSON(w, http.StatusOK, listResponse{
-			Items:      items,
-			NextCursor: result.NextCursor,
+			Items: items,
+			Meta:  buildListMeta(result),
 		})
 	}
 }
@@ -136,8 +142,8 @@ func (h *Handler) handleScanIndex(th *tableHandler, idx config.IndexConfig) http
 
 		items := projectIndexItems(r, result.Items, th, th.config.PrimaryKey.Field, rkField, idx)
 		writeJSON(w, http.StatusOK, listResponse{
-			Items:      items,
-			NextCursor: result.NextCursor,
+			Items: items,
+			Meta:  buildListMeta(result),
 		})
 	}
 }
@@ -190,7 +196,7 @@ func (h *Handler) handleGetIndexItem(th *tableHandler, idx config.IndexConfig) h
 func parseListOptions(r *http.Request) database.ListOptions {
 	q := r.URL.Query()
 	opts := database.ListOptions{
-		Cursor:       q.Get("cursor"),
+		PageToken:    q.Get("pageToken"),
 		RKBeginsWith: q.Get("rkBeginsWith"),
 		RKGt:         q.Get("rkGt"),
 		RKGte:        q.Get("rkGte"),
@@ -203,6 +209,17 @@ func parseListOptions(r *http.Request) database.ListOptions {
 		}
 	}
 	return opts
+}
+
+// buildListMeta creates a listMeta from a ListResult, returning nil when there are no tokens.
+func buildListMeta(result *database.ListResult) *listMeta {
+	if result.NextPageToken == "" && result.PreviousPageToken == "" {
+		return nil
+	}
+	return &listMeta{
+		NextPageToken:     result.NextPageToken,
+		PreviousPageToken: result.PreviousPageToken,
+	}
 }
 
 // projectItems injects keys and applies projection to each item in the list.

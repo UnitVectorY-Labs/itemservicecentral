@@ -13,7 +13,7 @@ Key features:
 - **Flexible key model** — PK-only tables for simple lookups, PK+RK tables for hierarchical data
 - **Global Secondary Indexes** — query data by alternate key fields stored in the JSONB payload
 - **Field projection** — control which fields are returned per request or by default
-- **Cursor-based pagination** — paginate through large result sets
+- **Token-based pagination** — paginate through large result sets
 - **JWT authentication** — optional RS256 JWT validation with JWKS support
 - **Docker-ready** — ships as a single static binary in a distroless container
 
@@ -304,11 +304,13 @@ List endpoints return paginated results in an envelope:
 ```json
 {
   "items": [ ... ],
-  "nextCursor": "..."
+  "_meta": {
+    "nextPageToken": "..."
+  }
 }
 ```
 
-The `nextCursor` field is present only when more results are available.
+The `_meta` object is present only when there are pagination tokens. The `nextPageToken` field indicates more results are available.
 
 #### List items in a partition
 
@@ -323,7 +325,7 @@ Query parameters:
 | Parameter | Description |
 |-----------|-------------|
 | `limit` | Maximum number of items per page (default: 50) |
-| `cursor` | Pagination cursor from a previous response |
+| `pageToken` | Pagination token from a previous response |
 | `fields` | Comma-separated list of fields to return |
 | `rkBeginsWith` | Filter: RK starts with this prefix (PK+RK tables only) |
 | `rkGt` | Filter: RK greater than value |
@@ -355,7 +357,7 @@ Returns all items in the table. Only available when `allowTableScan: true` is se
 curl "http://localhost:8080/v1/users/_items?limit=20"
 
 # Next page
-curl "http://localhost:8080/v1/users/_items?limit=20&cursor=eyJwayI6InVzZXIxMjMifQ"
+curl "http://localhost:8080/v1/users/_items?limit=20&pageToken=dXNlcjEyM3w"
 ```
 
 ### Index Endpoints
@@ -368,7 +370,7 @@ GET /v1/{table}/_index/{indexName}/{indexPk}/_items
 
 Queries a GSI by its partition key value. Returns items that have the specified value in the index PK field.
 
-Query parameters: same as list endpoints (`limit`, `cursor`, `fields`, and RK filters when the index has an RK).
+Query parameters: same as list endpoints (`limit`, `pageToken`, `fields`, and RK filters when the index has an RK).
 
 ```bash
 # Find all orders for a customer
@@ -446,14 +448,14 @@ When JWT is disabled, all requests are allowed without authentication.
 
 ## Pagination
 
-List and scan endpoints use cursor-based pagination:
+List and scan endpoints use token-based pagination:
 
 1. Make a request with an optional `limit` parameter (default: 50)
-2. If more results exist, the response includes a `nextCursor` string
-3. Pass `nextCursor` as the `cursor` query parameter in the next request
-4. When `nextCursor` is absent from the response, there are no more pages
+2. If more results exist, the response includes a `_meta` object with a `nextPageToken` string
+3. Pass `nextPageToken` as the `pageToken` query parameter in the next request
+4. When `_meta` is absent from the response, there are no more pages
 
-Cursors are opaque base64url-encoded strings. They encode the PK (and RK for composite key tables) of the last item in the current page.
+Page tokens are opaque base64url-encoded strings. They encode the PK (and RK for composite key tables) of the last item in the current page.
 
 ## Projection and Filtering
 
