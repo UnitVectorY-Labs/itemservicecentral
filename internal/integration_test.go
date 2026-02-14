@@ -24,10 +24,8 @@ var testServer *httptest.Server
 var testDB *sql.DB
 
 func TestMain(m *testing.M) {
-	connStr := "postgres://test:test@localhost:5433/testdb?sslmode=disable"
-
 	var err error
-	testDB, err = database.Connect(connStr)
+	testDB, err = database.Connect("localhost", 5433, "testdb", "test", "test", "disable")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to connect to database: %v\n", err)
 		os.Exit(1)

@@ -26,7 +26,7 @@ itemservicecentral provides four subcommands:
 Starts the HTTP API server. Connects to PostgreSQL, runs migrations, and begins serving requests.
 
 ```bash
-go run . api -config config.yaml -db-url "postgres://user:pass@localhost:5432/dbname?sslmode=disable" -port 8080
+go run . api -config config.yaml -db-host localhost -db-port 5432 -db-name mydb -db-user myuser -db-password mypass -port 8080
 ```
 
 Flags:
@@ -35,7 +35,12 @@ Flags:
 |------|---------------------|---------|-------------|
 | `-config` | `ISC_CONFIG` | `config.yaml` | Path to YAML config file |
 | `-port` | `ISC_PORT` | `8080` | Server port (overrides config file) |
-| `-db-url` | `ISC_DATABASE_URL` | (required) | PostgreSQL connection string |
+| `-db-host` | `ISC_DB_HOST` | `localhost` | Database host |
+| `-db-port` | `ISC_DB_PORT` | `5432` | Database port |
+| `-db-name` | `ISC_DB_NAME` | (required) | Database name |
+| `-db-user` | `ISC_DB_USER` | (required) | Database username |
+| `-db-password` | `ISC_DB_PASSWORD` | (required) | Database password |
+| `-db-sslmode` | `ISC_DB_SSLMODE` | `disable` | SSL mode |
 
 ### `validate`
 
@@ -50,7 +55,7 @@ go run . validate -config config.yaml
 Runs database migrations (creates tables and indexes) without starting the server.
 
 ```bash
-go run . migrate -config config.yaml -db-url "postgres://user:pass@localhost:5432/dbname?sslmode=disable"
+go run . migrate -config config.yaml -db-host localhost -db-port 5432 -db-name mydb -db-user myuser -db-password mypass
 ```
 
 ### `version`
@@ -479,7 +484,12 @@ Build and run using Docker:
 docker build -t itemservicecentral .
 docker run -p 8080:8080 \
   -e ISC_CONFIG=/config.yaml \
-  -e ISC_DATABASE_URL="postgres://user:pass@host:5432/dbname?sslmode=disable" \
+  -e ISC_DB_HOST=host \
+  -e ISC_DB_PORT=5432 \
+  -e ISC_DB_NAME=dbname \
+  -e ISC_DB_USER=user \
+  -e ISC_DB_PASSWORD=pass \
+  -e ISC_DB_SSLMODE=disable \
   -v ./config.yaml:/config.yaml:ro \
   itemservicecentral
 ```

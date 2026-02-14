@@ -75,15 +75,36 @@ func runAPI() {
 	fs := flag.NewFlagSet("api", flag.ExitOnError)
 	configPath := fs.String("config", "config.yaml", "Path to config file")
 	port := fs.String("port", "", "Server port")
-	dbURL := fs.String("db-url", "", "PostgreSQL connection string")
+	dbHost := fs.String("db-host", "localhost", "Database host")
+	dbPort := fs.String("db-port", "5432", "Database port")
+	dbName := fs.String("db-name", "", "Database name")
+	dbUser := fs.String("db-user", "", "Database username")
+	dbPassword := fs.String("db-password", "", "Database password")
+	dbSSLMode := fs.String("db-sslmode", "disable", "SSL mode")
 	fs.Parse(os.Args[2:])
 
 	*configPath = envOrDefault(*configPath, "config.yaml", "ISC_CONFIG")
 	*port = envOrDefault(*port, "", "ISC_PORT")
-	*dbURL = envOrDefault(*dbURL, "", "ISC_DATABASE_URL")
+	*dbHost = envOrDefault(*dbHost, "localhost", "ISC_DB_HOST")
+	*dbPort = envOrDefault(*dbPort, "5432", "ISC_DB_PORT")
+	*dbName = envOrDefault(*dbName, "", "ISC_DB_NAME")
+	*dbUser = envOrDefault(*dbUser, "", "ISC_DB_USER")
+	*dbPassword = envOrDefault(*dbPassword, "", "ISC_DB_PASSWORD")
+	*dbSSLMode = envOrDefault(*dbSSLMode, "disable", "ISC_DB_SSLMODE")
 
-	if *dbURL == "" {
-		log.Fatal("database URL is required: set -db-url or ISC_DATABASE_URL")
+	if *dbName == "" {
+		log.Fatal("database name is required: set -db-name or ISC_DB_NAME")
+	}
+	if *dbUser == "" {
+		log.Fatal("database user is required: set -db-user or ISC_DB_USER")
+	}
+	if *dbPassword == "" {
+		log.Fatal("database password is required: set -db-password or ISC_DB_PASSWORD")
+	}
+
+	dbPortInt, err := strconv.Atoi(*dbPort)
+	if err != nil {
+		log.Fatalf("invalid db-port: %v", err)
 	}
 
 	cfg, err := config.Load(*configPath)
@@ -104,7 +125,7 @@ func runAPI() {
 		cfg.Server.Port = p
 	}
 
-	db, err := database.Connect(*dbURL)
+	db, err := database.Connect(*dbHost, dbPortInt, *dbName, *dbUser, *dbPassword, *dbSSLMode)
 	if err != nil {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
@@ -196,14 +217,35 @@ func runValidate() {
 func runMigrate() {
 	fs := flag.NewFlagSet("migrate", flag.ExitOnError)
 	configPath := fs.String("config", "config.yaml", "Path to config file")
-	dbURL := fs.String("db-url", "", "PostgreSQL connection string")
+	dbHost := fs.String("db-host", "localhost", "Database host")
+	dbPort := fs.String("db-port", "5432", "Database port")
+	dbName := fs.String("db-name", "", "Database name")
+	dbUser := fs.String("db-user", "", "Database username")
+	dbPassword := fs.String("db-password", "", "Database password")
+	dbSSLMode := fs.String("db-sslmode", "disable", "SSL mode")
 	fs.Parse(os.Args[2:])
 
 	*configPath = envOrDefault(*configPath, "config.yaml", "ISC_CONFIG")
-	*dbURL = envOrDefault(*dbURL, "", "ISC_DATABASE_URL")
+	*dbHost = envOrDefault(*dbHost, "localhost", "ISC_DB_HOST")
+	*dbPort = envOrDefault(*dbPort, "5432", "ISC_DB_PORT")
+	*dbName = envOrDefault(*dbName, "", "ISC_DB_NAME")
+	*dbUser = envOrDefault(*dbUser, "", "ISC_DB_USER")
+	*dbPassword = envOrDefault(*dbPassword, "", "ISC_DB_PASSWORD")
+	*dbSSLMode = envOrDefault(*dbSSLMode, "disable", "ISC_DB_SSLMODE")
 
-	if *dbURL == "" {
-		log.Fatal("database URL is required: set -db-url or ISC_DATABASE_URL")
+	if *dbName == "" {
+		log.Fatal("database name is required: set -db-name or ISC_DB_NAME")
+	}
+	if *dbUser == "" {
+		log.Fatal("database user is required: set -db-user or ISC_DB_USER")
+	}
+	if *dbPassword == "" {
+		log.Fatal("database password is required: set -db-password or ISC_DB_PASSWORD")
+	}
+
+	dbPortInt, err := strconv.Atoi(*dbPort)
+	if err != nil {
+		log.Fatalf("invalid db-port: %v", err)
 	}
 
 	cfg, err := config.Load(*configPath)
@@ -215,7 +257,7 @@ func runMigrate() {
 		log.Fatalf("invalid config: %v", err)
 	}
 
-	db, err := database.Connect(*dbURL)
+	db, err := database.Connect(*dbHost, dbPortInt, *dbName, *dbUser, *dbPassword, *dbSSLMode)
 	if err != nil {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
