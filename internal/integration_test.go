@@ -80,7 +80,7 @@ func testTables() []config.TableConfig {
 			Schema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
-					"itemId":   map[string]interface{}{"type": "string"},
+					"itemId":   map[string]interface{}{"type": "string", "pattern": `^[A-Za-z_][A-Za-z0-9._-]*$`},
 					"name":     map[string]interface{}{"type": "string"},
 					"status":   map[string]interface{}{"type": "string"},
 					"category": map[string]interface{}{"type": "string"},
@@ -111,8 +111,8 @@ func testTables() []config.TableConfig {
 			Schema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
-					"orderId":    map[string]interface{}{"type": "string"},
-					"lineId":     map[string]interface{}{"type": "string"},
+					"orderId":    map[string]interface{}{"type": "string", "pattern": `^[A-Za-z_][A-Za-z0-9._-]*$`},
+					"lineId":     map[string]interface{}{"type": "string", "pattern": `^[A-Za-z_][A-Za-z0-9._-]*$`},
 					"customerId": map[string]interface{}{"type": "string"},
 					"amount":     map[string]interface{}{"type": "number"},
 				},

@@ -34,6 +34,7 @@ tables:
       properties:
         userId:
           type: string
+          pattern: "^[A-Za-z_][A-Za-z0-9._-]*$"
         name:
           type: string
         email:
@@ -83,8 +84,10 @@ tables:
       properties:
         orderId:
           type: string
+          pattern: "^[A-Za-z_][A-Za-z0-9._-]*$"
         lineId:
           type: string
+          pattern: "^[A-Za-z_][A-Za-z0-9._-]*$"
         customerId:
           type: string
         product:
