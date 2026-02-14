@@ -30,9 +30,16 @@ type ListOptions struct {
 	RKLte        string
 }
 
+// ItemResult holds a single item with its base table keys.
+type ItemResult struct {
+	PK   string
+	RK   string
+	Data map[string]interface{}
+}
+
 // ListResult holds a page of items and an optional cursor for the next page.
 type ListResult struct {
-	Items      []map[string]interface{}
+	Items      []ItemResult
 	NextCursor string // empty if no more pages
 }
 
@@ -216,19 +223,21 @@ func (s *Store) ScanIndex(ctx context.Context, table string, index IndexQueryCon
 }
 
 // GetItemByIndex retrieves a single item from a GSI by pk+rk.
-func (s *Store) GetItemByIndex(ctx context.Context, table string, index IndexQueryConfig, indexPk string, indexRk string) (map[string]interface{}, error) {
+func (s *Store) GetItemByIndex(ctx context.Context, table string, index IndexQueryConfig, indexPk string, indexRk string) (*ItemResult, error) {
 	pkExpr := fmt.Sprintf("data->>%s", quoteStringLiteral(index.PKField))
 	rkExpr := fmt.Sprintf("data->>%s", quoteStringLiteral(index.RKField))
 
 	query := fmt.Sprintf(
-		`SELECT data FROM %q WHERE %s = $1 AND %s = $2 LIMIT 1`,
+		`SELECT pk, rk, data FROM %q WHERE %s = $1 AND %s = $2 LIMIT 1`,
 		table, pkExpr, rkExpr,
 	)
 
 	row := s.db.QueryRowContext(ctx, query, indexPk, indexRk)
 
+	var pk string
+	var rk sql.NullString
 	var dataBytes []byte
-	if err := row.Scan(&dataBytes); err != nil {
+	if err := row.Scan(&pk, &rk, &dataBytes); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -239,7 +248,12 @@ func (s *Store) GetItemByIndex(ctx context.Context, table string, index IndexQue
 	if err := json.Unmarshal(dataBytes, &data); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal data: %w", err)
 	}
-	return data, nil
+
+	rkVal := ""
+	if rk.Valid {
+		rkVal = rk.String
+	}
+	return &ItemResult{PK: pk, RK: rkVal, Data: data}, nil
 }
 
 // queryItems builds and executes a paginated SELECT query.
@@ -303,9 +317,9 @@ func (s *Store) queryItems(ctx context.Context, table string, where []string, ar
 		collected = collected[:limit]
 	}
 
-	result.Items = make([]map[string]interface{}, len(collected))
+	result.Items = make([]ItemResult, len(collected))
 	for i, r := range collected {
-		result.Items[i] = r.data
+		result.Items[i] = ItemResult{PK: r.pk, RK: r.rk, Data: r.data}
 	}
 
 	if hasMore && len(collected) > 0 {

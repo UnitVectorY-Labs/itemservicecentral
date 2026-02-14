@@ -43,7 +43,7 @@ func (h *Handler) handleListItems(th *tableHandler) http.HandlerFunc {
 			rkField = th.config.RK.Field
 		}
 
-		items := projectItems(r, result.Items, th, th.config.PK.Field, pk, rkField)
+		items := projectItems(r, result.Items, th, th.config.PK.Field, rkField)
 		writeJSON(w, http.StatusOK, listResponse{
 			Items:      items,
 			NextCursor: result.NextCursor,
@@ -68,7 +68,7 @@ func (h *Handler) handleScanTable(th *tableHandler) http.HandlerFunc {
 			rkField = th.config.RK.Field
 		}
 
-		items := projectItems(r, result.Items, th, th.config.PK.Field, "", rkField)
+		items := projectItems(r, result.Items, th, th.config.PK.Field, rkField)
 		writeJSON(w, http.StatusOK, listResponse{
 			Items:      items,
 			NextCursor: result.NextCursor,
@@ -162,16 +162,24 @@ func (h *Handler) handleGetIndexItem(th *tableHandler, idx config.IndexConfig) h
 			RKField: idx.RK.Field,
 		}
 
-		data, err := h.store.GetItemByIndex(r.Context(), th.config.Name, iqc, indexPk, indexRk)
+		result, err := h.store.GetItemByIndex(r.Context(), th.config.Name, iqc, indexPk, indexRk)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to get item by index")
 			return
 		}
-		if data == nil {
+		if result == nil {
 			writeError(w, http.StatusNotFound, "item not found")
 			return
 		}
 
+		rkField := ""
+		rkValue := ""
+		if th.config.RK != nil {
+			rkField = th.config.RK.Field
+			rkValue = result.RK
+		}
+
+		data := model.InjectKeys(result.Data, th.config.PK.Field, result.PK, rkField, rkValue)
 		data = applyIndexProjection(r, data, th, idx)
 
 		writeJSON(w, http.StatusOK, data)
@@ -197,20 +205,30 @@ func parseListOptions(r *http.Request) database.ListOptions {
 	return opts
 }
 
-// projectItems applies projection to each item in the list.
-func projectItems(r *http.Request, items []map[string]interface{}, th *tableHandler, pkField, pk, rkField string) []map[string]interface{} {
+// projectItems injects keys and applies projection to each item in the list.
+func projectItems(r *http.Request, items []database.ItemResult, th *tableHandler, pkField, rkField string) []map[string]interface{} {
 	result := make([]map[string]interface{}, len(items))
 	for i, item := range items {
-		result[i] = applyProjection(r, item, th)
+		rkValue := ""
+		if rkField != "" {
+			rkValue = item.RK
+		}
+		data := model.InjectKeys(item.Data, pkField, item.PK, rkField, rkValue)
+		result[i] = applyProjection(r, data, th)
 	}
 	return result
 }
 
-// projectIndexItems applies index projection then field projection.
-func projectIndexItems(r *http.Request, items []map[string]interface{}, th *tableHandler, pkField, rkField string, idx config.IndexConfig) []map[string]interface{} {
+// projectIndexItems injects keys and applies index projection then field projection.
+func projectIndexItems(r *http.Request, items []database.ItemResult, th *tableHandler, pkField, rkField string, idx config.IndexConfig) []map[string]interface{} {
 	result := make([]map[string]interface{}, len(items))
 	for i, item := range items {
-		result[i] = applyIndexProjection(r, item, th, idx)
+		rkValue := ""
+		if rkField != "" {
+			rkValue = item.RK
+		}
+		data := model.InjectKeys(item.Data, pkField, item.PK, rkField, rkValue)
+		result[i] = applyIndexProjection(r, data, th, idx)
 	}
 	return result
 }
