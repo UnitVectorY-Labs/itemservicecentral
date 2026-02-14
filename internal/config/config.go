@@ -36,7 +36,6 @@ type TableConfig struct {
 	RangeKey       *KeyConfig    `yaml:"rangeKey"`
 	AllowTableScan bool          `yaml:"allowTableScan"`
 	Schema         interface{}   `yaml:"schema"`
-	DefaultFields  []string      `yaml:"defaultFields"`
 	Indexes        []IndexConfig `yaml:"indexes"`
 }
 
@@ -45,12 +44,17 @@ type KeyConfig struct {
 	Pattern string `yaml:"pattern"`
 }
 
+type IndexProjection struct {
+	Type             string   `yaml:"type"`
+	NonKeyAttributes []string `yaml:"nonKeyAttributes"`
+}
+
 type IndexConfig struct {
-	Name           string     `yaml:"name"`
-	PrimaryKey     KeyConfig  `yaml:"primaryKey"`
-	RangeKey       *KeyConfig `yaml:"rangeKey"`
-	Projection     []string   `yaml:"projection"`
-	AllowIndexScan bool       `yaml:"allowIndexScan"`
+	Name           string           `yaml:"name"`
+	PrimaryKey     KeyConfig        `yaml:"primaryKey"`
+	RangeKey       *KeyConfig       `yaml:"rangeKey"`
+	Projection     *IndexProjection `yaml:"projection"`
+	AllowIndexScan bool             `yaml:"allowIndexScan"`
 }
 
 // Load reads and parses a YAML configuration file from the given path.
@@ -169,6 +173,22 @@ func Validate(cfg *Config) error {
 				}
 				if idx.RangeKey.Field == idx.PrimaryKey.Field {
 					return fmt.Errorf("table %q: index %q: rangeKey field must be different from index primaryKey field", t.Name, idx.Name)
+				}
+			}
+
+			// Index Projection validation
+			if idx.Projection != nil {
+				switch idx.Projection.Type {
+				case "ALL", "KEYS_ONLY":
+					if len(idx.Projection.NonKeyAttributes) > 0 {
+						return fmt.Errorf("table %q: index %q: projection nonKeyAttributes must be empty when type is %q", t.Name, idx.Name, idx.Projection.Type)
+					}
+				case "INCLUDE":
+					if len(idx.Projection.NonKeyAttributes) == 0 {
+						return fmt.Errorf("table %q: index %q: projection nonKeyAttributes must not be empty when type is INCLUDE", t.Name, idx.Name)
+					}
+				default:
+					return fmt.Errorf("table %q: index %q: projection type must be one of ALL, KEYS_ONLY, or INCLUDE", t.Name, idx.Name)
 				}
 			}
 		}

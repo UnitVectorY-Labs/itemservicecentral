@@ -271,13 +271,10 @@ func (h *Handler) handleDeleteItem(th *tableHandler) http.HandlerFunc {
 	}
 }
 
-// applyProjection applies field projection based on query params or default fields.
+// applyProjection applies field projection based on the fields query parameter.
 func applyProjection(r *http.Request, data map[string]interface{}, th *tableHandler) map[string]interface{} {
 	fieldsParam := r.URL.Query().Get("fields")
 	fields := model.ParseFieldsParam(fieldsParam)
-	if fields == nil {
-		fields = th.config.DefaultFields
-	}
 
 	if len(fields) == 0 {
 		return data

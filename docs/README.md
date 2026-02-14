@@ -110,17 +110,15 @@ tables:
       required:
         - userId
         - name
-    defaultFields:
-      - userId
-      - name
     allowTableScan: true
     indexes:
       - name: by_email
         pk:
           field: email
         projection:
-          - userId
-          - email
+          type: INCLUDE
+          nonKeyAttributes:
+            - email
         allowIndexScan: false
 ```
 
@@ -135,7 +133,6 @@ tables:
 | `rk.field` | When `rk` set | JSON field name used as range key. Must differ from `pk.field`. |
 | `rk.pattern` | When `rk` set | Regex pattern that RK values in URLs must match. |
 | `schema` | Yes | JSON Schema (Draft 2020-12 compatible) for validating request bodies. |
-| `defaultFields` | No | Fields returned by default when no `?fields=` parameter is provided. PK and RK fields are always included. |
 | `allowTableScan` | No | When `true`, enables the `GET /v1/{table}/_items` full table scan endpoint. Default: `false`. |
 | `indexes` | No | List of Global Secondary Index definitions. |
 
@@ -146,7 +143,9 @@ tables:
 | `name` | Yes | Index name. Must match `^[a-z][a-z0-9_]*$`. Must be unique within the table. |
 | `pk.field` | Yes | JSON field from the data payload to use as the index partition key. Must differ from the base table PK and RK fields. |
 | `rk` | No | Optional range key for the index (same structure as `pk`). Must differ from base PK, base RK, and index PK fields. |
-| `projection` | No | List of fields to include when querying this index. PK and RK fields are always included. If omitted, all fields are returned. |
+| `projection` | No | Projection configuration for this index. If omitted, all fields are returned. |
+| `projection.type` | When `projection` set | Must be `ALL`, `KEYS_ONLY`, or `INCLUDE`. |
+| `projection.nonKeyAttributes` | When type is `INCLUDE` | List of non-key fields to include. Must be non-empty for `INCLUDE` and empty for `ALL`/`KEYS_ONLY`. |
 | `allowIndexScan` | No | When `true`, enables the `GET /v1/{table}/_index/{name}/_items` full index scan endpoint. Default: `false`. |
 
 ## Data Model
@@ -468,13 +467,15 @@ curl "http://localhost:8080/v1/users/data/user123/_item?fields=name,email"
 
 PK and RK fields are always included in the response regardless of the `fields` parameter.
 
-### Default Fields (`defaultFields`)
-
-If `defaultFields` is configured for a table and no `?fields=` parameter is provided, only the listed default fields (plus PK/RK) are returned.
-
 ### Index Projection
 
-Indexes can define a `projection` list. When querying through an index, only the projected fields (plus PK/RK) are returned from the data. The `?fields=` parameter can further narrow the result within the projected fields.
+Indexes can define a `projection` with a `type` of `ALL`, `KEYS_ONLY`, or `INCLUDE`. When querying through an index:
+
+- **`ALL`** (or no projection): all fields are returned.
+- **`KEYS_ONLY`**: only the base PK/RK and index PK/RK fields are returned.
+- **`INCLUDE`**: only the base PK/RK fields plus the listed `nonKeyAttributes` are returned.
+
+The `?fields=` parameter can further narrow the result within the projected fields.
 
 ## Docker
 

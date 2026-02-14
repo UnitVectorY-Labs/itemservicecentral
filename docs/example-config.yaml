@@ -44,12 +44,6 @@ tables:
         - userId
         - name
 
-    # When no ?fields= parameter is provided, return only these fields
-    # (PK field is always included).
-    defaultFields:
-      - userId
-      - name
-
     # Allow GET /v1/users/_items to scan the full table.
     allowTableScan: true
 
@@ -60,9 +54,10 @@ tables:
           field: status
         # Only return these fields when querying through this index.
         projection:
-          - userId
-          - name
-          - status
+          type: INCLUDE
+          nonKeyAttributes:
+            - name
+            - status
         # Allow GET /v1/users/_index/by_status/_items to scan the full index.
         allowIndexScan: true
 
@@ -120,9 +115,9 @@ tables:
         rangeKey:
           field: product
         projection:
-          - orderId
-          - lineId
-          - status
-          - product
-          - amount
+          type: INCLUDE
+          nonKeyAttributes:
+            - orderId
+            - lineId
+            - amount
         allowIndexScan: true

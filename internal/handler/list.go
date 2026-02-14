@@ -235,13 +235,30 @@ func projectIndexItems(r *http.Request, items []database.ItemResult, th *tableHa
 
 // applyIndexProjection applies index projection first, then field-level projection.
 func applyIndexProjection(r *http.Request, data map[string]interface{}, th *tableHandler, idx config.IndexConfig) map[string]interface{} {
+	rkField := ""
+	if th.config.RangeKey != nil {
+		rkField = th.config.RangeKey.Field
+	}
+
 	// Apply index projection if configured
-	if len(idx.Projection) > 0 {
-		rkField := ""
-		if th.config.RangeKey != nil {
-			rkField = th.config.RangeKey.Field
+	if idx.Projection != nil {
+		switch idx.Projection.Type {
+		case "KEYS_ONLY":
+			keyFields := []string{idx.PrimaryKey.Field}
+			if idx.RangeKey != nil {
+				keyFields = append(keyFields, idx.RangeKey.Field)
+			}
+			data = model.ProjectFields(data, keyFields, th.config.PrimaryKey.Field, rkField)
+		case "INCLUDE":
+			fields := make([]string, 0, len(idx.Projection.NonKeyAttributes)+2)
+			fields = append(fields, idx.PrimaryKey.Field)
+			if idx.RangeKey != nil {
+				fields = append(fields, idx.RangeKey.Field)
+			}
+			fields = append(fields, idx.Projection.NonKeyAttributes...)
+			data = model.ProjectFields(data, fields, th.config.PrimaryKey.Field, rkField)
 		}
-		data = model.ProjectFields(data, idx.Projection, th.config.PrimaryKey.Field, rkField)
+		// "ALL" or nil: return all fields
 	}
 
 	// Then apply request-level projection

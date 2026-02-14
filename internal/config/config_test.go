@@ -34,9 +34,6 @@ tables:
       pattern: "^[a-z0-9]+$"
     schema:
       type: object
-    defaultFields:
-      - userId
-      - name
 `
 
 func TestLoad_ValidFile(t *testing.T) {
@@ -395,8 +392,10 @@ tables:
           field: email
           pattern: "^.+$"
         projection:
-          - userId
-          - email
+          type: INCLUDE
+          nonKeyAttributes:
+            - userId
+            - email
 `
 	path := writeTempConfig(t, yaml)
 	cfg, err := Load(path)
@@ -678,8 +677,10 @@ tables:
           field: createdAt
           pattern: "^.+$"
         projection:
-          - orderId
-          - status
+          type: INCLUDE
+          nonKeyAttributes:
+            - orderId
+            - status
 `
 	path := writeTempConfig(t, yaml)
 	cfg, err := Load(path)
@@ -743,6 +744,155 @@ tables:
 		t.Fatal("expected validation error for missing index name")
 	}
 	if !strings.Contains(err.Error(), "name is required") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_ProjectionTypeALL(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+    indexes:
+      - name: by_email
+        primaryKey:
+          field: email
+          pattern: "^.+$"
+        projection:
+          type: ALL
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := Validate(cfg); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+}
+
+func TestValidate_ProjectionTypeKEYS_ONLY(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+    indexes:
+      - name: by_email
+        primaryKey:
+          field: email
+          pattern: "^.+$"
+        projection:
+          type: KEYS_ONLY
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := Validate(cfg); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+}
+
+func TestValidate_ProjectionInvalidType(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+    indexes:
+      - name: by_email
+        primaryKey:
+          field: email
+          pattern: "^.+$"
+        projection:
+          type: INVALID
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for invalid projection type")
+	}
+	if !strings.Contains(err.Error(), "projection type must be one of") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_ProjectionIncludeWithoutNonKeyAttributes(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+    indexes:
+      - name: by_email
+        primaryKey:
+          field: email
+          pattern: "^.+$"
+        projection:
+          type: INCLUDE
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for INCLUDE without nonKeyAttributes")
+	}
+	if !strings.Contains(err.Error(), "nonKeyAttributes must not be empty") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_ProjectionALLWithNonKeyAttributes(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+    indexes:
+      - name: by_email
+        primaryKey:
+          field: email
+          pattern: "^.+$"
+        projection:
+          type: ALL
+          nonKeyAttributes:
+            - name
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for ALL with nonKeyAttributes")
+	}
+	if !strings.Contains(err.Error(), "nonKeyAttributes must be empty") {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
