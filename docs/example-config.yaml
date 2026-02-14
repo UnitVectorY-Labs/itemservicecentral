@@ -22,7 +22,7 @@ tables:
   # Each user is identified by a single partition key (userId). No range key.
   # --------------------------------------------------------------------------
   - name: users
-    pk:
+    primaryKey:
       # The JSON field name used as the partition key.
       field: userId
       # Regex that PK values in the URL must match.
@@ -56,7 +56,7 @@ tables:
     indexes:
       # Index to look up users by status.
       - name: by_status
-        pk:
+        primaryKey:
           field: status
         # Only return these fields when querying through this index.
         projection:
@@ -73,13 +73,13 @@ tables:
   # This allows multiple line items per order.
   # --------------------------------------------------------------------------
   - name: orders
-    pk:
+    primaryKey:
       field: orderId
       pattern: "^[A-Za-z_][A-Za-z0-9._-]*$"
 
     # Range key enables composite primary keys. Multiple items can share
     # the same PK as long as the RK is unique.
-    rk:
+    rangeKey:
       field: lineId
       pattern: "^[A-Za-z_][A-Za-z0-9._-]*$"
 
@@ -109,15 +109,15 @@ tables:
     indexes:
       # Index to query all order lines for a given customer.
       - name: by_customer
-        pk:
+        primaryKey:
           field: customerId
         allowIndexScan: false
 
       # Index with a range key to query orders by status, sorted by product.
       - name: by_status
-        pk:
+        primaryKey:
           field: status
-        rk:
+        rangeKey:
           field: product
         projection:
           - orderId

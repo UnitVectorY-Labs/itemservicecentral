@@ -24,13 +24,13 @@ func (h *Handler) handleListItems(th *tableHandler) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if err := validate.ValidateKeyPattern(pk, th.config.PK.Pattern); err != nil {
+		if err := validate.ValidateKeyPattern(pk, th.config.PrimaryKey.Pattern); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 
 		opts := parseListOptions(r)
-		hasRK := th.config.RK != nil
+		hasRK := th.config.RangeKey != nil
 
 		result, err := h.store.ListItems(r.Context(), th.config.Name, pk, hasRK, opts)
 		if err != nil {
@@ -39,11 +39,11 @@ func (h *Handler) handleListItems(th *tableHandler) http.HandlerFunc {
 		}
 
 		rkField := ""
-		if th.config.RK != nil {
-			rkField = th.config.RK.Field
+		if th.config.RangeKey != nil {
+			rkField = th.config.RangeKey.Field
 		}
 
-		items := projectItems(r, result.Items, th, th.config.PK.Field, rkField)
+		items := projectItems(r, result.Items, th, th.config.PrimaryKey.Field, rkField)
 		writeJSON(w, http.StatusOK, listResponse{
 			Items:      items,
 			NextCursor: result.NextCursor,
@@ -55,7 +55,7 @@ func (h *Handler) handleListItems(th *tableHandler) http.HandlerFunc {
 func (h *Handler) handleScanTable(th *tableHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		opts := parseListOptions(r)
-		hasRK := th.config.RK != nil
+		hasRK := th.config.RangeKey != nil
 
 		result, err := h.store.ScanTable(r.Context(), th.config.Name, hasRK, opts)
 		if err != nil {
@@ -64,11 +64,11 @@ func (h *Handler) handleScanTable(th *tableHandler) http.HandlerFunc {
 		}
 
 		rkField := ""
-		if th.config.RK != nil {
-			rkField = th.config.RK.Field
+		if th.config.RangeKey != nil {
+			rkField = th.config.RangeKey.Field
 		}
 
-		items := projectItems(r, result.Items, th, th.config.PK.Field, rkField)
+		items := projectItems(r, result.Items, th, th.config.PrimaryKey.Field, rkField)
 		writeJSON(w, http.StatusOK, listResponse{
 			Items:      items,
 			NextCursor: result.NextCursor,
@@ -87,10 +87,10 @@ func (h *Handler) handleQueryIndex(th *tableHandler, idx config.IndexConfig) htt
 
 		opts := parseListOptions(r)
 		iqc := database.IndexQueryConfig{
-			PKField: idx.PK.Field,
+			PKField: idx.PrimaryKey.Field,
 		}
-		if idx.RK != nil {
-			iqc.RKField = idx.RK.Field
+		if idx.RangeKey != nil {
+			iqc.RKField = idx.RangeKey.Field
 		}
 
 		result, err := h.store.QueryIndex(r.Context(), th.config.Name, iqc, indexPk, opts)
@@ -100,11 +100,11 @@ func (h *Handler) handleQueryIndex(th *tableHandler, idx config.IndexConfig) htt
 		}
 
 		rkField := ""
-		if th.config.RK != nil {
-			rkField = th.config.RK.Field
+		if th.config.RangeKey != nil {
+			rkField = th.config.RangeKey.Field
 		}
 
-		items := projectIndexItems(r, result.Items, th, th.config.PK.Field, rkField, idx)
+		items := projectIndexItems(r, result.Items, th, th.config.PrimaryKey.Field, rkField, idx)
 		writeJSON(w, http.StatusOK, listResponse{
 			Items:      items,
 			NextCursor: result.NextCursor,
@@ -117,10 +117,10 @@ func (h *Handler) handleScanIndex(th *tableHandler, idx config.IndexConfig) http
 	return func(w http.ResponseWriter, r *http.Request) {
 		opts := parseListOptions(r)
 		iqc := database.IndexQueryConfig{
-			PKField: idx.PK.Field,
+			PKField: idx.PrimaryKey.Field,
 		}
-		if idx.RK != nil {
-			iqc.RKField = idx.RK.Field
+		if idx.RangeKey != nil {
+			iqc.RKField = idx.RangeKey.Field
 		}
 
 		result, err := h.store.ScanIndex(r.Context(), th.config.Name, iqc, opts)
@@ -130,11 +130,11 @@ func (h *Handler) handleScanIndex(th *tableHandler, idx config.IndexConfig) http
 		}
 
 		rkField := ""
-		if th.config.RK != nil {
-			rkField = th.config.RK.Field
+		if th.config.RangeKey != nil {
+			rkField = th.config.RangeKey.Field
 		}
 
-		items := projectIndexItems(r, result.Items, th, th.config.PK.Field, rkField, idx)
+		items := projectIndexItems(r, result.Items, th, th.config.PrimaryKey.Field, rkField, idx)
 		writeJSON(w, http.StatusOK, listResponse{
 			Items:      items,
 			NextCursor: result.NextCursor,
@@ -158,8 +158,8 @@ func (h *Handler) handleGetIndexItem(th *tableHandler, idx config.IndexConfig) h
 		}
 
 		iqc := database.IndexQueryConfig{
-			PKField: idx.PK.Field,
-			RKField: idx.RK.Field,
+			PKField: idx.PrimaryKey.Field,
+			RKField: idx.RangeKey.Field,
 		}
 
 		result, err := h.store.GetItemByIndex(r.Context(), th.config.Name, iqc, indexPk, indexRk)
@@ -174,12 +174,12 @@ func (h *Handler) handleGetIndexItem(th *tableHandler, idx config.IndexConfig) h
 
 		rkField := ""
 		rkValue := ""
-		if th.config.RK != nil {
-			rkField = th.config.RK.Field
+		if th.config.RangeKey != nil {
+			rkField = th.config.RangeKey.Field
 			rkValue = result.RK
 		}
 
-		data := model.InjectKeys(result.Data, th.config.PK.Field, result.PK, rkField, rkValue)
+		data := model.InjectKeys(result.Data, th.config.PrimaryKey.Field, result.PK, rkField, rkValue)
 		data = applyIndexProjection(r, data, th, idx)
 
 		writeJSON(w, http.StatusOK, data)
@@ -238,10 +238,10 @@ func applyIndexProjection(r *http.Request, data map[string]interface{}, th *tabl
 	// Apply index projection if configured
 	if len(idx.Projection) > 0 {
 		rkField := ""
-		if th.config.RK != nil {
-			rkField = th.config.RK.Field
+		if th.config.RangeKey != nil {
+			rkField = th.config.RangeKey.Field
 		}
-		data = model.ProjectFields(data, idx.Projection, th.config.PK.Field, rkField)
+		data = model.ProjectFields(data, idx.Projection, th.config.PrimaryKey.Field, rkField)
 	}
 
 	// Then apply request-level projection

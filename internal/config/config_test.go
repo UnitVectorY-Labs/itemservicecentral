@@ -29,7 +29,7 @@ server:
     audience: my-api
 tables:
   - name: users
-    pk:
+    primaryKey:
       field: userId
       pattern: "^[a-z0-9]+$"
     schema:
@@ -57,11 +57,11 @@ func TestLoad_ValidFile(t *testing.T) {
 	if cfg.Tables[0].Name != "users" {
 		t.Errorf("expected table name 'users', got %q", cfg.Tables[0].Name)
 	}
-	if cfg.Tables[0].PK.Field != "userId" {
-		t.Errorf("expected pk field 'userId', got %q", cfg.Tables[0].PK.Field)
+	if cfg.Tables[0].PrimaryKey.Field != "userId" {
+		t.Errorf("expected primaryKey field 'userId', got %q", cfg.Tables[0].PrimaryKey.Field)
 	}
-	if cfg.Tables[0].RK != nil {
-		t.Error("expected rk to be nil")
+	if cfg.Tables[0].RangeKey != nil {
+		t.Error("expected rangeKey to be nil")
 	}
 }
 
@@ -95,7 +95,7 @@ func TestValidate_DefaultPort(t *testing.T) {
 	yaml := `
 tables:
   - name: items
-    pk:
+    primaryKey:
       field: itemId
       pattern: "^[a-z]+$"
     schema:
@@ -137,13 +137,13 @@ func TestValidate_DuplicateTableName(t *testing.T) {
 	yaml := `
 tables:
   - name: users
-    pk:
+    primaryKey:
       field: userId
       pattern: "^[a-z]+$"
     schema:
       type: object
   - name: users
-    pk:
+    primaryKey:
       field: userId
       pattern: "^[a-z]+$"
     schema:
@@ -167,7 +167,7 @@ func TestValidate_InvalidTableName(t *testing.T) {
 	yaml := `
 tables:
   - name: Users
-    pk:
+    primaryKey:
       field: userId
       pattern: "^[a-z]+$"
     schema:
@@ -190,7 +190,7 @@ tables:
 func TestValidate_MissingTableName(t *testing.T) {
 	yaml := `
 tables:
-  - pk:
+  - primaryKey:
       field: userId
       pattern: "^[a-z]+$"
     schema:
@@ -214,7 +214,7 @@ func TestValidate_MissingPKField(t *testing.T) {
 	yaml := `
 tables:
   - name: users
-    pk:
+    primaryKey:
       pattern: "^[a-z]+$"
     schema:
       type: object
@@ -228,7 +228,7 @@ tables:
 	if err == nil {
 		t.Fatal("expected validation error for missing pk field")
 	}
-	if !strings.Contains(err.Error(), "pk field is required") {
+	if !strings.Contains(err.Error(), "primaryKey field is required") {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
@@ -237,7 +237,7 @@ func TestValidate_MissingPKPattern(t *testing.T) {
 	yaml := `
 tables:
   - name: users
-    pk:
+    primaryKey:
       field: userId
     schema:
       type: object
@@ -251,7 +251,7 @@ tables:
 	if err == nil {
 		t.Fatal("expected validation error for missing pk pattern")
 	}
-	if !strings.Contains(err.Error(), "pk pattern is required") {
+	if !strings.Contains(err.Error(), "primaryKey pattern is required") {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
@@ -260,10 +260,10 @@ func TestValidate_RKFieldAndPattern(t *testing.T) {
 	yaml := `
 tables:
   - name: orders
-    pk:
+    primaryKey:
       field: orderId
       pattern: "^[a-z]+$"
-    rk:
+    rangeKey:
       field: itemId
       pattern: "^[0-9]+$"
     schema:
@@ -283,10 +283,10 @@ func TestValidate_RKMissingField(t *testing.T) {
 	yaml := `
 tables:
   - name: orders
-    pk:
+    primaryKey:
       field: orderId
       pattern: "^[a-z]+$"
-    rk:
+    rangeKey:
       pattern: "^[0-9]+$"
     schema:
       type: object
@@ -300,7 +300,7 @@ tables:
 	if err == nil {
 		t.Fatal("expected validation error for missing rk field")
 	}
-	if !strings.Contains(err.Error(), "rk field is required") {
+	if !strings.Contains(err.Error(), "rangeKey field is required") {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
@@ -309,10 +309,10 @@ func TestValidate_RKMissingPattern(t *testing.T) {
 	yaml := `
 tables:
   - name: orders
-    pk:
+    primaryKey:
       field: orderId
       pattern: "^[a-z]+$"
-    rk:
+    rangeKey:
       field: itemId
     schema:
       type: object
@@ -326,7 +326,7 @@ tables:
 	if err == nil {
 		t.Fatal("expected validation error for missing rk pattern")
 	}
-	if !strings.Contains(err.Error(), "rk pattern is required") {
+	if !strings.Contains(err.Error(), "rangeKey pattern is required") {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
@@ -335,10 +335,10 @@ func TestValidate_PKAndRKSameField(t *testing.T) {
 	yaml := `
 tables:
   - name: orders
-    pk:
+    primaryKey:
       field: orderId
       pattern: "^[a-z]+$"
-    rk:
+    rangeKey:
       field: orderId
       pattern: "^[0-9]+$"
     schema:
@@ -353,7 +353,7 @@ tables:
 	if err == nil {
 		t.Fatal("expected validation error for same pk and rk field")
 	}
-	if !strings.Contains(err.Error(), "pk field and rk field must be different") {
+	if !strings.Contains(err.Error(), "primaryKey field and rangeKey field must be different") {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
@@ -362,7 +362,7 @@ func TestValidate_MissingSchema(t *testing.T) {
 	yaml := `
 tables:
   - name: users
-    pk:
+    primaryKey:
       field: userId
       pattern: "^[a-z]+$"
 `
@@ -384,14 +384,14 @@ func TestValidate_IndexValid(t *testing.T) {
 	yaml := `
 tables:
   - name: users
-    pk:
+    primaryKey:
       field: userId
       pattern: "^[a-z]+$"
     schema:
       type: object
     indexes:
       - name: by_email
-        pk:
+        primaryKey:
           field: email
           pattern: "^.+$"
         projection:
@@ -412,18 +412,18 @@ func TestValidate_DuplicateIndexName(t *testing.T) {
 	yaml := `
 tables:
   - name: users
-    pk:
+    primaryKey:
       field: userId
       pattern: "^[a-z]+$"
     schema:
       type: object
     indexes:
       - name: by_email
-        pk:
+        primaryKey:
           field: email
           pattern: "^.+$"
       - name: by_email
-        pk:
+        primaryKey:
           field: name
           pattern: "^.+$"
 `
@@ -445,14 +445,14 @@ func TestValidate_InvalidIndexName(t *testing.T) {
 	yaml := `
 tables:
   - name: users
-    pk:
+    primaryKey:
       field: userId
       pattern: "^[a-z]+$"
     schema:
       type: object
     indexes:
       - name: ByEmail
-        pk:
+        primaryKey:
           field: email
           pattern: "^.+$"
 `
@@ -474,14 +474,14 @@ func TestValidate_IndexPKSameAsBasePK(t *testing.T) {
 	yaml := `
 tables:
   - name: users
-    pk:
+    primaryKey:
       field: userId
       pattern: "^[a-z]+$"
     schema:
       type: object
     indexes:
       - name: by_user
-        pk:
+        primaryKey:
           field: userId
           pattern: "^.+$"
 `
@@ -494,7 +494,7 @@ tables:
 	if err == nil {
 		t.Fatal("expected validation error for index pk same as base pk")
 	}
-	if !strings.Contains(err.Error(), "different from base pk") {
+	if !strings.Contains(err.Error(), "different from base primaryKey") {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
@@ -503,17 +503,17 @@ func TestValidate_IndexPKSameAsBaseRK(t *testing.T) {
 	yaml := `
 tables:
   - name: orders
-    pk:
+    primaryKey:
       field: orderId
       pattern: "^[a-z]+$"
-    rk:
+    rangeKey:
       field: itemId
       pattern: "^[0-9]+$"
     schema:
       type: object
     indexes:
       - name: by_item
-        pk:
+        primaryKey:
           field: itemId
           pattern: "^.+$"
 `
@@ -526,7 +526,7 @@ tables:
 	if err == nil {
 		t.Fatal("expected validation error for index pk same as base rk")
 	}
-	if !strings.Contains(err.Error(), "different from base rk") {
+	if !strings.Contains(err.Error(), "different from base rangeKey") {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
@@ -535,20 +535,20 @@ func TestValidate_IndexRKSameAsBasePK(t *testing.T) {
 	yaml := `
 tables:
   - name: orders
-    pk:
+    primaryKey:
       field: orderId
       pattern: "^[a-z]+$"
-    rk:
+    rangeKey:
       field: itemId
       pattern: "^[0-9]+$"
     schema:
       type: object
     indexes:
       - name: by_status
-        pk:
+        primaryKey:
           field: status
           pattern: "^.+$"
-        rk:
+        rangeKey:
           field: orderId
           pattern: "^.+$"
 `
@@ -561,7 +561,7 @@ tables:
 	if err == nil {
 		t.Fatal("expected validation error for index rk same as base pk")
 	}
-	if !strings.Contains(err.Error(), "different from base pk") {
+	if !strings.Contains(err.Error(), "different from base primaryKey") {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
@@ -570,20 +570,20 @@ func TestValidate_IndexRKSameAsBaseRK(t *testing.T) {
 	yaml := `
 tables:
   - name: orders
-    pk:
+    primaryKey:
       field: orderId
       pattern: "^[a-z]+$"
-    rk:
+    rangeKey:
       field: itemId
       pattern: "^[0-9]+$"
     schema:
       type: object
     indexes:
       - name: by_status
-        pk:
+        primaryKey:
           field: status
           pattern: "^.+$"
-        rk:
+        rangeKey:
           field: itemId
           pattern: "^.+$"
 `
@@ -596,7 +596,7 @@ tables:
 	if err == nil {
 		t.Fatal("expected validation error for index rk same as base rk")
 	}
-	if !strings.Contains(err.Error(), "different from base rk") {
+	if !strings.Contains(err.Error(), "different from base rangeKey") {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
@@ -605,17 +605,17 @@ func TestValidate_IndexRKSameAsIndexPK(t *testing.T) {
 	yaml := `
 tables:
   - name: orders
-    pk:
+    primaryKey:
       field: orderId
       pattern: "^[a-z]+$"
     schema:
       type: object
     indexes:
       - name: by_status
-        pk:
+        primaryKey:
           field: status
           pattern: "^.+$"
-        rk:
+        rangeKey:
           field: status
           pattern: "^.+$"
 `
@@ -628,7 +628,7 @@ tables:
 	if err == nil {
 		t.Fatal("expected validation error for index rk same as index pk")
 	}
-	if !strings.Contains(err.Error(), "different from index pk") {
+	if !strings.Contains(err.Error(), "different from index primaryKey") {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
@@ -637,7 +637,7 @@ func TestValidate_InvalidKeyFieldName(t *testing.T) {
 	yaml := `
 tables:
   - name: users
-    pk:
+    primaryKey:
       field: "123bad"
       pattern: "^[a-z]+$"
     schema:
@@ -661,20 +661,20 @@ func TestValidate_IndexWithRKValid(t *testing.T) {
 	yaml := `
 tables:
   - name: orders
-    pk:
+    primaryKey:
       field: orderId
       pattern: "^[a-z]+$"
-    rk:
+    rangeKey:
       field: itemId
       pattern: "^[0-9]+$"
     schema:
       type: object
     indexes:
       - name: by_status
-        pk:
+        primaryKey:
           field: status
           pattern: "^.+$"
-        rk:
+        rangeKey:
           field: createdAt
           pattern: "^.+$"
         projection:
@@ -695,14 +695,14 @@ func TestValidate_MissingIndexPKField(t *testing.T) {
 	yaml := `
 tables:
   - name: users
-    pk:
+    primaryKey:
       field: userId
       pattern: "^[a-z]+$"
     schema:
       type: object
     indexes:
       - name: by_email
-        pk:
+        primaryKey:
           pattern: "^.+$"
 `
 	path := writeTempConfig(t, yaml)
@@ -714,7 +714,7 @@ tables:
 	if err == nil {
 		t.Fatal("expected validation error for missing index pk field")
 	}
-	if !strings.Contains(err.Error(), "pk field is required") {
+	if !strings.Contains(err.Error(), "primaryKey field is required") {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
@@ -723,13 +723,13 @@ func TestValidate_MissingIndexName(t *testing.T) {
 	yaml := `
 tables:
   - name: users
-    pk:
+    primaryKey:
       field: userId
       pattern: "^[a-z]+$"
     schema:
       type: object
     indexes:
-      - pk:
+      - primaryKey:
           field: email
           pattern: "^.+$"
 `

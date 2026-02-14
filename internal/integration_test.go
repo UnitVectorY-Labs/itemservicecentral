@@ -71,11 +71,11 @@ func testTables() []config.TableConfig {
 	return []config.TableConfig{
 		{
 			Name: "items",
-			PK: config.KeyConfig{
+			PrimaryKey: config.KeyConfig{
 				Field:   "itemId",
 				Pattern: `^[A-Za-z_][A-Za-z0-9._-]*$`,
 			},
-			RK:             nil,
+			RangeKey:       nil,
 			AllowTableScan: true,
 			Schema: map[string]interface{}{
 				"type": "object",
@@ -90,7 +90,7 @@ func testTables() []config.TableConfig {
 			Indexes: []config.IndexConfig{
 				{
 					Name: "by_status",
-					PK: config.KeyConfig{
+					PrimaryKey: config.KeyConfig{
 						Field: "status",
 					},
 					AllowIndexScan: true,
@@ -99,11 +99,11 @@ func testTables() []config.TableConfig {
 		},
 		{
 			Name: "orders",
-			PK: config.KeyConfig{
+			PrimaryKey: config.KeyConfig{
 				Field:   "orderId",
 				Pattern: `^[A-Za-z_][A-Za-z0-9._-]*$`,
 			},
-			RK: &config.KeyConfig{
+			RangeKey: &config.KeyConfig{
 				Field:   "lineId",
 				Pattern: `^[A-Za-z_][A-Za-z0-9._-]*$`,
 			},
@@ -121,7 +121,7 @@ func testTables() []config.TableConfig {
 			Indexes: []config.IndexConfig{
 				{
 					Name: "by_customer",
-					PK: config.KeyConfig{
+					PrimaryKey: config.KeyConfig{
 						Field: "customerId",
 					},
 					AllowIndexScan: false,

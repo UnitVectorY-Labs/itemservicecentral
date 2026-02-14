@@ -17,7 +17,7 @@ func (h *Handler) handleGetItem(th *tableHandler) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if err := validate.ValidateKeyPattern(pk, th.config.PK.Pattern); err != nil {
+		if err := validate.ValidateKeyPattern(pk, th.config.PrimaryKey.Pattern); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -25,18 +25,18 @@ func (h *Handler) handleGetItem(th *tableHandler) http.HandlerFunc {
 		var rkPtr *string
 		rkField := ""
 		rkValue := ""
-		if th.config.RK != nil {
+		if th.config.RangeKey != nil {
 			rk := r.PathValue("rk")
 			if err := validate.ValidateKeyValue(rk); err != nil {
 				writeError(w, http.StatusBadRequest, err.Error())
 				return
 			}
-			if err := validate.ValidateKeyPattern(rk, th.config.RK.Pattern); err != nil {
+			if err := validate.ValidateKeyPattern(rk, th.config.RangeKey.Pattern); err != nil {
 				writeError(w, http.StatusBadRequest, err.Error())
 				return
 			}
 			rkPtr = &rk
-			rkField = th.config.RK.Field
+			rkField = th.config.RangeKey.Field
 			rkValue = rk
 		}
 
@@ -50,7 +50,7 @@ func (h *Handler) handleGetItem(th *tableHandler) http.HandlerFunc {
 			return
 		}
 
-		data = model.InjectKeys(data, th.config.PK.Field, pk, rkField, rkValue)
+		data = model.InjectKeys(data, th.config.PrimaryKey.Field, pk, rkField, rkValue)
 		data = applyProjection(r, data, th)
 
 		writeJSON(w, http.StatusOK, data)
@@ -65,7 +65,7 @@ func (h *Handler) handlePutItem(th *tableHandler) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if err := validate.ValidateKeyPattern(pk, th.config.PK.Pattern); err != nil {
+		if err := validate.ValidateKeyPattern(pk, th.config.PrimaryKey.Pattern); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -73,18 +73,18 @@ func (h *Handler) handlePutItem(th *tableHandler) http.HandlerFunc {
 		var rkPtr *string
 		rkField := ""
 		rkValue := ""
-		if th.config.RK != nil {
+		if th.config.RangeKey != nil {
 			rk := r.PathValue("rk")
 			if err := validate.ValidateKeyValue(rk); err != nil {
 				writeError(w, http.StatusBadRequest, err.Error())
 				return
 			}
-			if err := validate.ValidateKeyPattern(rk, th.config.RK.Pattern); err != nil {
+			if err := validate.ValidateKeyPattern(rk, th.config.RangeKey.Pattern); err != nil {
 				writeError(w, http.StatusBadRequest, err.Error())
 				return
 			}
 			rkPtr = &rk
-			rkField = th.config.RK.Field
+			rkField = th.config.RangeKey.Field
 			rkValue = rk
 		}
 
@@ -107,7 +107,7 @@ func (h *Handler) handlePutItem(th *tableHandler) http.HandlerFunc {
 		}
 
 		// Verify pk in body matches URL
-		if bodyPK, ok := doc[th.config.PK.Field]; ok {
+		if bodyPK, ok := doc[th.config.PrimaryKey.Field]; ok {
 			if s, ok := bodyPK.(string); !ok || s != pk {
 				writeError(w, http.StatusBadRequest, "pk in body does not match URL")
 				return
@@ -115,8 +115,8 @@ func (h *Handler) handlePutItem(th *tableHandler) http.HandlerFunc {
 		}
 
 		// Verify rk in body matches URL
-		if th.config.RK != nil {
-			if bodyRK, ok := doc[th.config.RK.Field]; ok {
+		if th.config.RangeKey != nil {
+			if bodyRK, ok := doc[th.config.RangeKey.Field]; ok {
 				if s, ok := bodyRK.(string); !ok || s != rkValue {
 					writeError(w, http.StatusBadRequest, "rk in body does not match URL")
 					return
@@ -129,13 +129,13 @@ func (h *Handler) handlePutItem(th *tableHandler) http.HandlerFunc {
 			return
 		}
 
-		stripped := model.StripKeys(doc, th.config.PK.Field, rkField)
+		stripped := model.StripKeys(doc, th.config.PrimaryKey.Field, rkField)
 		if err := h.store.PutItem(r.Context(), th.config.Name, pk, rkPtr, stripped); err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to put item")
 			return
 		}
 
-		result := model.InjectKeys(stripped, th.config.PK.Field, pk, rkField, rkValue)
+		result := model.InjectKeys(stripped, th.config.PrimaryKey.Field, pk, rkField, rkValue)
 		writeJSON(w, http.StatusOK, result)
 	}
 }
@@ -148,7 +148,7 @@ func (h *Handler) handlePatchItem(th *tableHandler) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if err := validate.ValidateKeyPattern(pk, th.config.PK.Pattern); err != nil {
+		if err := validate.ValidateKeyPattern(pk, th.config.PrimaryKey.Pattern); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -156,18 +156,18 @@ func (h *Handler) handlePatchItem(th *tableHandler) http.HandlerFunc {
 		var rkPtr *string
 		rkField := ""
 		rkValue := ""
-		if th.config.RK != nil {
+		if th.config.RangeKey != nil {
 			rk := r.PathValue("rk")
 			if err := validate.ValidateKeyValue(rk); err != nil {
 				writeError(w, http.StatusBadRequest, err.Error())
 				return
 			}
-			if err := validate.ValidateKeyPattern(rk, th.config.RK.Pattern); err != nil {
+			if err := validate.ValidateKeyPattern(rk, th.config.RangeKey.Pattern); err != nil {
 				writeError(w, http.StatusBadRequest, err.Error())
 				return
 			}
 			rkPtr = &rk
-			rkField = th.config.RK.Field
+			rkField = th.config.RangeKey.Field
 			rkValue = rk
 		}
 
@@ -190,7 +190,7 @@ func (h *Handler) handlePatchItem(th *tableHandler) http.HandlerFunc {
 		}
 
 		// Verify pk in patch matches URL
-		if bodyPK, ok := patch[th.config.PK.Field]; ok {
+		if bodyPK, ok := patch[th.config.PrimaryKey.Field]; ok {
 			if s, ok := bodyPK.(string); !ok || s != pk {
 				writeError(w, http.StatusBadRequest, "pk in body does not match URL")
 				return
@@ -198,8 +198,8 @@ func (h *Handler) handlePatchItem(th *tableHandler) http.HandlerFunc {
 		}
 
 		// Verify rk in patch matches URL
-		if th.config.RK != nil {
-			if bodyRK, ok := patch[th.config.RK.Field]; ok {
+		if th.config.RangeKey != nil {
+			if bodyRK, ok := patch[th.config.RangeKey.Field]; ok {
 				if s, ok := bodyRK.(string); !ok || s != rkValue {
 					writeError(w, http.StatusBadRequest, "rk in body does not match URL")
 					return
@@ -218,14 +218,14 @@ func (h *Handler) handlePatchItem(th *tableHandler) http.HandlerFunc {
 		}
 
 		merged := model.MergePatch(existing, patch)
-		mergedWithKeys := model.InjectKeys(merged, th.config.PK.Field, pk, rkField, rkValue)
+		mergedWithKeys := model.InjectKeys(merged, th.config.PrimaryKey.Field, pk, rkField, rkValue)
 
 		if err := th.validator.Validate(mergedWithKeys); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 
-		stripped := model.StripKeys(mergedWithKeys, th.config.PK.Field, rkField)
+		stripped := model.StripKeys(mergedWithKeys, th.config.PrimaryKey.Field, rkField)
 		if err := h.store.PutItem(r.Context(), th.config.Name, pk, rkPtr, stripped); err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to put item")
 			return
@@ -243,19 +243,19 @@ func (h *Handler) handleDeleteItem(th *tableHandler) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if err := validate.ValidateKeyPattern(pk, th.config.PK.Pattern); err != nil {
+		if err := validate.ValidateKeyPattern(pk, th.config.PrimaryKey.Pattern); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 
 		var rkPtr *string
-		if th.config.RK != nil {
+		if th.config.RangeKey != nil {
 			rk := r.PathValue("rk")
 			if err := validate.ValidateKeyValue(rk); err != nil {
 				writeError(w, http.StatusBadRequest, err.Error())
 				return
 			}
-			if err := validate.ValidateKeyPattern(rk, th.config.RK.Pattern); err != nil {
+			if err := validate.ValidateKeyPattern(rk, th.config.RangeKey.Pattern); err != nil {
 				writeError(w, http.StatusBadRequest, err.Error())
 				return
 			}
@@ -284,8 +284,8 @@ func applyProjection(r *http.Request, data map[string]interface{}, th *tableHand
 	}
 
 	rkField := ""
-	if th.config.RK != nil {
-		rkField = th.config.RK.Field
+	if th.config.RangeKey != nil {
+		rkField = th.config.RangeKey.Field
 	}
-	return model.ProjectFields(data, fields, th.config.PK.Field, rkField)
+	return model.ProjectFields(data, fields, th.config.PrimaryKey.Field, rkField)
 }

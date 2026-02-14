@@ -34,7 +34,7 @@ func Migrate(db *sql.DB, tables []config.TableConfig) error {
 
 func createTable(tx *sql.Tx, t config.TableConfig) error {
 	var stmt string
-	if t.RK != nil {
+	if t.RangeKey != nil {
 		// PK+RK table: rk is NOT NULL with composite primary key
 		stmt = fmt.Sprintf(
 			`CREATE TABLE IF NOT EXISTS %q (
@@ -70,16 +70,16 @@ func createTable(tx *sql.Tx, t config.TableConfig) error {
 
 func createIndexes(tx *sql.Tx, t config.TableConfig) error {
 	for _, idx := range t.Indexes {
-		if idx.RK != nil {
+		if idx.RangeKey != nil {
 			// PK+RK GSI: composite index on two JSONB fields
 			stmt := fmt.Sprintf(
 				`CREATE INDEX IF NOT EXISTS %q ON %q ((data->>%s), (data->>%s)) WHERE data->>%s IS NOT NULL AND data->>%s IS NOT NULL`,
 				fmt.Sprintf("idx_%s_%s", t.Name, idx.Name),
 				t.Name,
-				quoteStringLiteral(idx.PK.Field),
-				quoteStringLiteral(idx.RK.Field),
-				quoteStringLiteral(idx.PK.Field),
-				quoteStringLiteral(idx.RK.Field),
+				quoteStringLiteral(idx.PrimaryKey.Field),
+				quoteStringLiteral(idx.RangeKey.Field),
+				quoteStringLiteral(idx.PrimaryKey.Field),
+				quoteStringLiteral(idx.RangeKey.Field),
 			)
 			if _, err := tx.Exec(stmt); err != nil {
 				return fmt.Errorf("index %q: %w", idx.Name, err)
@@ -90,8 +90,8 @@ func createIndexes(tx *sql.Tx, t config.TableConfig) error {
 				`CREATE INDEX IF NOT EXISTS %q ON %q ((data->>%s)) WHERE data->>%s IS NOT NULL`,
 				fmt.Sprintf("idx_%s_%s", t.Name, idx.Name),
 				t.Name,
-				quoteStringLiteral(idx.PK.Field),
-				quoteStringLiteral(idx.PK.Field),
+				quoteStringLiteral(idx.PrimaryKey.Field),
+				quoteStringLiteral(idx.PrimaryKey.Field),
 			)
 			if _, err := tx.Exec(stmt); err != nil {
 				return fmt.Errorf("index %q: %w", idx.Name, err)

@@ -58,7 +58,7 @@ func (h *Handler) SetupRoutes(mux *http.ServeMux) {
 }
 
 func (h *Handler) registerTableRoutes(mux *http.ServeMux, name string, th *tableHandler) {
-	hasRK := th.config.RK != nil
+	hasRK := th.config.RangeKey != nil
 
 	if hasRK {
 		mux.HandleFunc("GET /v1/"+name+"/data/{pk}/{rk}/_item", h.handleGetItem(th))
@@ -91,7 +91,7 @@ func (h *Handler) registerTableRoutes(mux *http.ServeMux, name string, th *table
 		}
 
 		// Get single item by index pk+rk
-		if idx.RK != nil {
+		if idx.RangeKey != nil {
 			mux.HandleFunc("GET /v1/"+name+"/_index/"+idx.Name+"/{indexPk}/{indexRk}/_item", h.handleGetIndexItem(th, idx))
 		}
 	}

@@ -31,12 +31,12 @@ type JWTConfig struct {
 }
 
 type TableConfig struct {
-	Name           string      `yaml:"name"`
-	PK             KeyConfig   `yaml:"pk"`
-	RK             *KeyConfig  `yaml:"rk"`
-	AllowTableScan bool        `yaml:"allowTableScan"`
-	Schema         interface{} `yaml:"schema"`
-	DefaultFields  []string    `yaml:"defaultFields"`
+	Name           string        `yaml:"name"`
+	PrimaryKey     KeyConfig     `yaml:"primaryKey"`
+	RangeKey       *KeyConfig    `yaml:"rangeKey"`
+	AllowTableScan bool          `yaml:"allowTableScan"`
+	Schema         interface{}   `yaml:"schema"`
+	DefaultFields  []string      `yaml:"defaultFields"`
 	Indexes        []IndexConfig `yaml:"indexes"`
 }
 
@@ -47,8 +47,8 @@ type KeyConfig struct {
 
 type IndexConfig struct {
 	Name           string     `yaml:"name"`
-	PK             KeyConfig  `yaml:"pk"`
-	RK             *KeyConfig `yaml:"rk"`
+	PrimaryKey     KeyConfig  `yaml:"primaryKey"`
+	RangeKey       *KeyConfig `yaml:"rangeKey"`
 	Projection     []string   `yaml:"projection"`
 	AllowIndexScan bool       `yaml:"allowIndexScan"`
 }
@@ -93,30 +93,30 @@ func Validate(cfg *Config) error {
 		}
 		tableNames[t.Name] = true
 
-		// PK validation
-		if t.PK.Field == "" {
-			return fmt.Errorf("table %q: pk field is required", t.Name)
+		// PrimaryKey validation
+		if t.PrimaryKey.Field == "" {
+			return fmt.Errorf("table %q: primaryKey field is required", t.Name)
 		}
-		if !keyFieldRegexp.MatchString(t.PK.Field) {
-			return fmt.Errorf("table %q: pk field %q must match %s", t.Name, t.PK.Field, keyFieldRegexp.String())
+		if !keyFieldRegexp.MatchString(t.PrimaryKey.Field) {
+			return fmt.Errorf("table %q: primaryKey field %q must match %s", t.Name, t.PrimaryKey.Field, keyFieldRegexp.String())
 		}
-		if t.PK.Pattern == "" {
-			return fmt.Errorf("table %q: pk pattern is required", t.Name)
+		if t.PrimaryKey.Pattern == "" {
+			return fmt.Errorf("table %q: primaryKey pattern is required", t.Name)
 		}
 
-		// RK validation
-		if t.RK != nil {
-			if t.RK.Field == "" {
-				return fmt.Errorf("table %q: rk field is required when rk is set", t.Name)
+		// RangeKey validation
+		if t.RangeKey != nil {
+			if t.RangeKey.Field == "" {
+				return fmt.Errorf("table %q: rangeKey field is required when rangeKey is set", t.Name)
 			}
-			if !keyFieldRegexp.MatchString(t.RK.Field) {
-				return fmt.Errorf("table %q: rk field %q must match %s", t.Name, t.RK.Field, keyFieldRegexp.String())
+			if !keyFieldRegexp.MatchString(t.RangeKey.Field) {
+				return fmt.Errorf("table %q: rangeKey field %q must match %s", t.Name, t.RangeKey.Field, keyFieldRegexp.String())
 			}
-			if t.RK.Pattern == "" {
-				return fmt.Errorf("table %q: rk pattern is required when rk is set", t.Name)
+			if t.RangeKey.Pattern == "" {
+				return fmt.Errorf("table %q: rangeKey pattern is required when rangeKey is set", t.Name)
 			}
-			if t.PK.Field == t.RK.Field {
-				return fmt.Errorf("table %q: pk field and rk field must be different", t.Name)
+			if t.PrimaryKey.Field == t.RangeKey.Field {
+				return fmt.Errorf("table %q: primaryKey field and rangeKey field must be different", t.Name)
 			}
 		}
 
@@ -139,36 +139,36 @@ func Validate(cfg *Config) error {
 			}
 			indexNames[idx.Name] = true
 
-			// Index PK validation
-			if idx.PK.Field == "" {
-				return fmt.Errorf("table %q: index %q: pk field is required", t.Name, idx.Name)
+			// Index PrimaryKey validation
+			if idx.PrimaryKey.Field == "" {
+				return fmt.Errorf("table %q: index %q: primaryKey field is required", t.Name, idx.Name)
 			}
-			if !keyFieldRegexp.MatchString(idx.PK.Field) {
-				return fmt.Errorf("table %q: index %q: pk field %q must match %s", t.Name, idx.Name, idx.PK.Field, keyFieldRegexp.String())
+			if !keyFieldRegexp.MatchString(idx.PrimaryKey.Field) {
+				return fmt.Errorf("table %q: index %q: primaryKey field %q must match %s", t.Name, idx.Name, idx.PrimaryKey.Field, keyFieldRegexp.String())
 			}
-			if idx.PK.Field == t.PK.Field {
-				return fmt.Errorf("table %q: index %q: pk field must be different from base pk field", t.Name, idx.Name)
+			if idx.PrimaryKey.Field == t.PrimaryKey.Field {
+				return fmt.Errorf("table %q: index %q: primaryKey field must be different from base primaryKey field", t.Name, idx.Name)
 			}
-			if t.RK != nil && idx.PK.Field == t.RK.Field {
-				return fmt.Errorf("table %q: index %q: pk field must be different from base rk field", t.Name, idx.Name)
+			if t.RangeKey != nil && idx.PrimaryKey.Field == t.RangeKey.Field {
+				return fmt.Errorf("table %q: index %q: primaryKey field must be different from base rangeKey field", t.Name, idx.Name)
 			}
 
-			// Index RK validation
-			if idx.RK != nil {
-				if idx.RK.Field == "" {
-					return fmt.Errorf("table %q: index %q: rk field is required when rk is set", t.Name, idx.Name)
+			// Index RangeKey validation
+			if idx.RangeKey != nil {
+				if idx.RangeKey.Field == "" {
+					return fmt.Errorf("table %q: index %q: rangeKey field is required when rangeKey is set", t.Name, idx.Name)
 				}
-				if !keyFieldRegexp.MatchString(idx.RK.Field) {
-					return fmt.Errorf("table %q: index %q: rk field %q must match %s", t.Name, idx.Name, idx.RK.Field, keyFieldRegexp.String())
+				if !keyFieldRegexp.MatchString(idx.RangeKey.Field) {
+					return fmt.Errorf("table %q: index %q: rangeKey field %q must match %s", t.Name, idx.Name, idx.RangeKey.Field, keyFieldRegexp.String())
 				}
-				if idx.RK.Field == t.PK.Field {
-					return fmt.Errorf("table %q: index %q: rk field must be different from base pk field", t.Name, idx.Name)
+				if idx.RangeKey.Field == t.PrimaryKey.Field {
+					return fmt.Errorf("table %q: index %q: rangeKey field must be different from base primaryKey field", t.Name, idx.Name)
 				}
-				if t.RK != nil && idx.RK.Field == t.RK.Field {
-					return fmt.Errorf("table %q: index %q: rk field must be different from base rk field", t.Name, idx.Name)
+				if t.RangeKey != nil && idx.RangeKey.Field == t.RangeKey.Field {
+					return fmt.Errorf("table %q: index %q: rangeKey field must be different from base rangeKey field", t.Name, idx.Name)
 				}
-				if idx.RK.Field == idx.PK.Field {
-					return fmt.Errorf("table %q: index %q: rk field must be different from index pk field", t.Name, idx.Name)
+				if idx.RangeKey.Field == idx.PrimaryKey.Field {
+					return fmt.Errorf("table %q: index %q: rangeKey field must be different from index primaryKey field", t.Name, idx.Name)
 				}
 			}
 		}
