@@ -33,4 +33,10 @@ Configuration via environment variables or CLI flags:
 | `-db-password` | `ISC_DB_PASSWORD` | (required) | Database password |
 | `-db-sslmode` | `ISC_DB_SSLMODE` | `disable` | SSL mode |
 
-See [docs/](docs/) for full documentation.
+## Documentation
+
+- [Usage](docs/USAGE.md) — CLI commands, flags, and environment variables
+- [API Reference](docs/API.md) — REST API endpoints and conventions
+- [Configuration](docs/CONFIG.md) — YAML configuration file format
+- [Examples](docs/EXAMPLE.md) — Quick reference with example requests and responses
+- [Example Config](docs/example-config.yaml) — Complete example configuration file
