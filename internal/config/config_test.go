@@ -896,3 +896,147 @@ tables:
 		t.Errorf("unexpected error: %v", err)
 	}
 }
+
+func TestValidate_SchemaMissingPKProperty(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      properties:
+        name:
+          type: string
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for schema missing PK property")
+	}
+	if !strings.Contains(err.Error(), `schema must define property "userId" for primaryKey field`) {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_SchemaPKNotString(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      properties:
+        userId:
+          type: number
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for PK not string type")
+	}
+	if !strings.Contains(err.Error(), `schema property "userId" for primaryKey must have type "string"`) {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_SchemaPKMissingPattern(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      properties:
+        userId:
+          type: string
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for PK missing pattern")
+	}
+	if !strings.Contains(err.Error(), `schema property "userId" for primaryKey must have a "pattern" constraint`) {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_SchemaRKMissingPattern(t *testing.T) {
+	yaml := `
+tables:
+  - name: orders
+    primaryKey:
+      field: orderId
+      pattern: "^[a-z]+$"
+    rangeKey:
+      field: itemId
+      pattern: "^[0-9]+$"
+    schema:
+      type: object
+      properties:
+        orderId:
+          type: string
+          pattern: "^[a-z]+$"
+        itemId:
+          type: string
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for RK missing pattern")
+	}
+	if !strings.Contains(err.Error(), `schema property "itemId" for rangeKey must have a "pattern" constraint`) {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_SchemaWithValidPatterns(t *testing.T) {
+	yaml := `
+tables:
+  - name: orders
+    primaryKey:
+      field: orderId
+      pattern: "^[a-z]+$"
+    rangeKey:
+      field: itemId
+      pattern: "^[0-9]+$"
+    schema:
+      type: object
+      properties:
+        orderId:
+          type: string
+          pattern: "^[a-z]+$"
+        itemId:
+          type: string
+          pattern: "^[0-9]+$"
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := Validate(cfg); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+}

@@ -129,6 +129,10 @@ func Validate(cfg *Config) error {
 			return fmt.Errorf("table %q: schema is required", t.Name)
 		}
 
+		if err := validateSchemaKeys(t); err != nil {
+			return err
+		}
+
 		// Index validation
 		indexNames := make(map[string]bool)
 		for j, idx := range t.Indexes {
@@ -194,5 +198,57 @@ func Validate(cfg *Config) error {
 		}
 	}
 
+	return nil
+}
+
+func validateSchemaKeys(t TableConfig) error {
+	schemaMap, ok := t.Schema.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	propsRaw, ok := schemaMap["properties"]
+	if !ok {
+		return nil
+	}
+	props, ok := propsRaw.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	if err := validateSchemaKeyField(t.Name, props, t.PrimaryKey.Field, "primaryKey"); err != nil {
+		return err
+	}
+	if t.RangeKey != nil {
+		if err := validateSchemaKeyField(t.Name, props, t.RangeKey.Field, "rangeKey"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateSchemaKeyField(tableName string, props map[string]interface{}, field, keyLabel string) error {
+	propRaw, ok := props[field]
+	if !ok {
+		return fmt.Errorf("table %q: schema must define property %q for %s field", tableName, field, keyLabel)
+	}
+	prop, ok := propRaw.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("table %q: schema must define property %q for %s field", tableName, field, keyLabel)
+	}
+	typeVal, _ := prop["type"].(string)
+	if typeVal != "string" {
+		return fmt.Errorf("table %q: schema property %q for %s must have type \"string\"", tableName, field, keyLabel)
+	}
+	patternVal, hasPattern := prop["pattern"]
+	if !hasPattern {
+		return fmt.Errorf("table %q: schema property %q for %s must have a \"pattern\" constraint", tableName, field, keyLabel)
+	}
+	patternStr, ok := patternVal.(string)
+	if !ok || patternStr == "" {
+		return fmt.Errorf("table %q: schema property %q for %s must have a \"pattern\" constraint", tableName, field, keyLabel)
+	}
+	if _, err := regexp.Compile(patternStr); err != nil {
+		return fmt.Errorf("table %q: schema property %q for %s has invalid pattern: %w", tableName, field, keyLabel, err)
+	}
 	return nil
 }
