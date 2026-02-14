@@ -5,6 +5,7 @@ import (
 	"os"
 	"regexp"
 
+	"github.com/UnitVectorY-Labs/itemservicecentral/internal/schema"
 	"gopkg.in/yaml.v3"
 )
 
@@ -127,6 +128,9 @@ func Validate(cfg *Config) error {
 		// Schema validation
 		if t.Schema == nil {
 			return fmt.Errorf("table %q: schema is required", t.Name)
+		}
+		if err := schema.ValidateDefinition(t.Schema); err != nil {
+			return fmt.Errorf("table %q: invalid schema: %w", t.Name, err)
 		}
 
 		if err := validateSchemaKeys(t); err != nil {

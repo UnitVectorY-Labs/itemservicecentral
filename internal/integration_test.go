@@ -85,7 +85,8 @@ func testTables() []config.TableConfig {
 					"status":   map[string]interface{}{"type": "string"},
 					"category": map[string]interface{}{"type": "string"},
 				},
-				"required": []interface{}{"itemId", "name"},
+				"required":             []interface{}{"itemId", "name"},
+				"additionalProperties": false,
 			},
 			Indexes: []config.IndexConfig{
 				{
@@ -116,7 +117,8 @@ func testTables() []config.TableConfig {
 					"customerId": map[string]interface{}{"type": "string"},
 					"amount":     map[string]interface{}{"type": "number"},
 				},
-				"required": []interface{}{"orderId", "lineId", "customerId"},
+				"required":             []interface{}{"orderId", "lineId", "customerId"},
+				"additionalProperties": false,
 			},
 			Indexes: []config.IndexConfig{
 				{
@@ -696,9 +698,9 @@ func TestQueryIndex_PKRK(t *testing.T) {
 
 func TestPutItem_InvalidJSONKeys(t *testing.T) {
 	resp := putItem(t, testServer, "/v1/items/data/underscoreTest/_item", map[string]interface{}{
-		"itemId":     "underscoreTest",
-		"name":       "Test",
-		"_badField":  "value",
+		"itemId":    "underscoreTest",
+		"name":      "Test",
+		"_badField": "value",
 	})
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("expected 400 for underscore key, got %d", resp.StatusCode)

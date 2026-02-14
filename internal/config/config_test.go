@@ -34,6 +34,7 @@ tables:
       pattern: "^[a-z0-9]+$"
     schema:
       type: object
+      additionalProperties: false
 `
 
 func TestLoad_ValidFile(t *testing.T) {
@@ -97,6 +98,7 @@ tables:
       pattern: "^[a-z]+$"
     schema:
       type: object
+      additionalProperties: false
 `
 	path := writeTempConfig(t, yaml)
 	cfg, err := Load(path)
@@ -139,12 +141,14 @@ tables:
       pattern: "^[a-z]+$"
     schema:
       type: object
+      additionalProperties: false
   - name: users
     primaryKey:
       field: userId
       pattern: "^[a-z]+$"
     schema:
       type: object
+      additionalProperties: false
 `
 	path := writeTempConfig(t, yaml)
 	cfg, err := Load(path)
@@ -169,6 +173,7 @@ tables:
       pattern: "^[a-z]+$"
     schema:
       type: object
+      additionalProperties: false
 `
 	path := writeTempConfig(t, yaml)
 	cfg, err := Load(path)
@@ -192,6 +197,7 @@ tables:
       pattern: "^[a-z]+$"
     schema:
       type: object
+      additionalProperties: false
 `
 	path := writeTempConfig(t, yaml)
 	cfg, err := Load(path)
@@ -215,6 +221,7 @@ tables:
       pattern: "^[a-z]+$"
     schema:
       type: object
+      additionalProperties: false
 `
 	path := writeTempConfig(t, yaml)
 	cfg, err := Load(path)
@@ -238,6 +245,7 @@ tables:
       field: userId
     schema:
       type: object
+      additionalProperties: false
 `
 	path := writeTempConfig(t, yaml)
 	cfg, err := Load(path)
@@ -265,6 +273,7 @@ tables:
       pattern: "^[0-9]+$"
     schema:
       type: object
+      additionalProperties: false
 `
 	path := writeTempConfig(t, yaml)
 	cfg, err := Load(path)
@@ -287,6 +296,7 @@ tables:
       pattern: "^[0-9]+$"
     schema:
       type: object
+      additionalProperties: false
 `
 	path := writeTempConfig(t, yaml)
 	cfg, err := Load(path)
@@ -313,6 +323,7 @@ tables:
       field: itemId
     schema:
       type: object
+      additionalProperties: false
 `
 	path := writeTempConfig(t, yaml)
 	cfg, err := Load(path)
@@ -340,6 +351,7 @@ tables:
       pattern: "^[0-9]+$"
     schema:
       type: object
+      additionalProperties: false
 `
 	path := writeTempConfig(t, yaml)
 	cfg, err := Load(path)
@@ -386,6 +398,7 @@ tables:
       pattern: "^[a-z]+$"
     schema:
       type: object
+      additionalProperties: false
     indexes:
       - name: by_email
         primaryKey:
@@ -416,6 +429,7 @@ tables:
       pattern: "^[a-z]+$"
     schema:
       type: object
+      additionalProperties: false
     indexes:
       - name: by_email
         primaryKey:
@@ -449,6 +463,7 @@ tables:
       pattern: "^[a-z]+$"
     schema:
       type: object
+      additionalProperties: false
     indexes:
       - name: ByEmail
         primaryKey:
@@ -478,6 +493,7 @@ tables:
       pattern: "^[a-z]+$"
     schema:
       type: object
+      additionalProperties: false
     indexes:
       - name: by_user
         primaryKey:
@@ -510,6 +526,7 @@ tables:
       pattern: "^[0-9]+$"
     schema:
       type: object
+      additionalProperties: false
     indexes:
       - name: by_item
         primaryKey:
@@ -542,6 +559,7 @@ tables:
       pattern: "^[0-9]+$"
     schema:
       type: object
+      additionalProperties: false
     indexes:
       - name: by_status
         primaryKey:
@@ -577,6 +595,7 @@ tables:
       pattern: "^[0-9]+$"
     schema:
       type: object
+      additionalProperties: false
     indexes:
       - name: by_status
         primaryKey:
@@ -609,6 +628,7 @@ tables:
       pattern: "^[a-z]+$"
     schema:
       type: object
+      additionalProperties: false
     indexes:
       - name: by_status
         primaryKey:
@@ -641,6 +661,7 @@ tables:
       pattern: "^[a-z]+$"
     schema:
       type: object
+      additionalProperties: false
 `
 	path := writeTempConfig(t, yaml)
 	cfg, err := Load(path)
@@ -668,6 +689,7 @@ tables:
       pattern: "^[0-9]+$"
     schema:
       type: object
+      additionalProperties: false
     indexes:
       - name: by_status
         primaryKey:
@@ -701,6 +723,7 @@ tables:
       pattern: "^[a-z]+$"
     schema:
       type: object
+      additionalProperties: false
     indexes:
       - name: by_email
         primaryKey:
@@ -729,6 +752,7 @@ tables:
       pattern: "^[a-z]+$"
     schema:
       type: object
+      additionalProperties: false
     indexes:
       - primaryKey:
           field: email
@@ -757,6 +781,7 @@ tables:
       pattern: "^[a-z]+$"
     schema:
       type: object
+      additionalProperties: false
     indexes:
       - name: by_email
         primaryKey:
@@ -784,6 +809,7 @@ tables:
       pattern: "^[a-z]+$"
     schema:
       type: object
+      additionalProperties: false
     indexes:
       - name: by_email
         primaryKey:
@@ -811,6 +837,7 @@ tables:
       pattern: "^[a-z]+$"
     schema:
       type: object
+      additionalProperties: false
     indexes:
       - name: by_email
         primaryKey:
@@ -842,6 +869,7 @@ tables:
       pattern: "^[a-z]+$"
     schema:
       type: object
+      additionalProperties: false
     indexes:
       - name: by_email
         primaryKey:
@@ -873,6 +901,7 @@ tables:
       pattern: "^[a-z]+$"
     schema:
       type: object
+      additionalProperties: false
     indexes:
       - name: by_email
         primaryKey:
@@ -906,6 +935,7 @@ tables:
       pattern: "^[a-z]+$"
     schema:
       type: object
+      additionalProperties: false
       properties:
         name:
           type: string
@@ -933,6 +963,7 @@ tables:
       pattern: "^[a-z]+$"
     schema:
       type: object
+      additionalProperties: false
       properties:
         userId:
           type: number
@@ -960,6 +991,7 @@ tables:
       pattern: "^[a-z]+$"
     schema:
       type: object
+      additionalProperties: false
       properties:
         userId:
           type: string
@@ -990,6 +1022,7 @@ tables:
       pattern: "^[0-9]+$"
     schema:
       type: object
+      additionalProperties: false
       properties:
         orderId:
           type: string
@@ -1023,6 +1056,7 @@ tables:
       pattern: "^[0-9]+$"
     schema:
       type: object
+      additionalProperties: false
       properties:
         orderId:
           type: string
@@ -1038,5 +1072,59 @@ tables:
 	}
 	if err := Validate(cfg); err != nil {
 		t.Fatalf("unexpected validation error: %v", err)
+	}
+}
+
+func TestValidate_SchemaMissingAdditionalProperties(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      properties:
+        userId:
+          type: string
+          pattern: "^[a-z]+$"
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for missing additionalProperties")
+	}
+	if !strings.Contains(err.Error(), "must set additionalProperties to false") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_SchemaRejectsRef(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      additionalProperties: false
+      $ref: "#/$defs/user"
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for unsupported $ref")
+	}
+	if !strings.Contains(err.Error(), `unsupported keyword "$ref"`) {
+		t.Errorf("unexpected error: %v", err)
 	}
 }

@@ -13,6 +13,7 @@ tables:
       pattern: "^[A-Za-z_][A-Za-z0-9._-]*$"
     schema:
       type: object
+      additionalProperties: false
       properties:
         userId:
           type: string

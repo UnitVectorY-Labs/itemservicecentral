@@ -1,42 +1,34 @@
 # itemservicecentral
 
-A configuration-driven service that exposes JSON Schema validated CRUD and index-style query REST endpoints backed by PostgreSQL JSONB with JWT-based access control.
+itemservicecentral is a configuration-driven API service for storing and querying JSON documents with predictable key-based access patterns.
 
-## Quick Start
+## Get Started
+
+1. Create a config file (see `docs/example-config.yaml`).
+2. Validate the config:
 
 ```bash
-# Validate configuration
 go run . validate -config config.yaml
-
-# Run database migrations
-go run . migrate -config config.yaml -db-host localhost -db-port 5432 -db-name mydb -db-user myuser -db-password mypass
-
-# Start the API server
-go run . api -config config.yaml -db-host localhost -db-port 5432 -db-name mydb -db-user myuser -db-password mypass
-
-# Print version
-go run . version
 ```
 
-## Configuration
+3. Run migrations:
 
-Configuration via environment variables or CLI flags:
+```bash
+go run . migrate -config config.yaml -db-host localhost -db-port 5432 -db-name mydb -db-user myuser -db-password mypass
+```
 
-| Flag | Environment Variable | Default | Description |
-|------|---------------------|---------|-------------|
-| `-config` | `ISC_CONFIG` | `config.yaml` | Path to YAML config file |
-| `-port` | `ISC_PORT` | `8080` | Server port |
-| `-db-host` | `ISC_DB_HOST` | `localhost` | Database host |
-| `-db-port` | `ISC_DB_PORT` | `5432` | Database port |
-| `-db-name` | `ISC_DB_NAME` | (required) | Database name |
-| `-db-user` | `ISC_DB_USER` | (required) | Database username |
-| `-db-password` | `ISC_DB_PASSWORD` | (required) | Database password |
-| `-db-sslmode` | `ISC_DB_SSLMODE` | `disable` | SSL mode |
+4. Start the API:
+
+```bash
+go run . api -config config.yaml -db-host localhost -db-port 5432 -db-name mydb -db-user myuser -db-password mypass
+```
 
 ## Documentation
 
-- [Usage](docs/USAGE.md) — CLI commands, flags, and environment variables
-- [API Reference](docs/API.md) — REST API endpoints and conventions
-- [Configuration](docs/CONFIG.md) — YAML configuration file format
-- [Examples](docs/EXAMPLE.md) — Quick reference with example requests and responses
-- [Example Config](docs/example-config.yaml) — Complete example configuration file
+- [Overview](docs/README.md)
+- [Usage](docs/USAGE.md)
+- [Configuration](docs/CONFIG.md)
+- [Database](docs/DATABASE.md)
+- [API Reference](docs/API.md)
+- [Examples](docs/EXAMPLE.md)
+- [Example Config](docs/example-config.yaml)

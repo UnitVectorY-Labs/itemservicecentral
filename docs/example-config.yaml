@@ -1,11 +1,10 @@
 # itemservicecentral Example Configuration
 #
-# This file demonstrates a complete configuration with both PK-only and PK+RK
-# tables, indexes, and all available options. JWT is disabled for local
-# development; enable it in production.
+# This file demonstrates a complete configuration with both single-key and
+# composite-key tables, indexes, and available options.
 
 server:
-  # HTTP listen port (default: 8080). Can be overridden with -port flag or ISC_PORT.
+  # HTTP listen port (default: 8080). Can be overridden with -port or ISC_PORT.
   port: 8080
 
   jwt:
@@ -17,20 +16,19 @@ server:
 
 tables:
   # --------------------------------------------------------------------------
-  # PK-only table: "users"
-  #
-  # Each user is identified by a single partition key (userId). No range key.
+  # Primary Key-only table: "users"
   # --------------------------------------------------------------------------
   - name: users
     primaryKey:
-      # The JSON field name used as the partition key.
+      # JSON field used as the table Primary Key.
       field: userId
-      # Regex that PK values in the URL must match.
+      # Regex that Primary Key values in URLs must match.
       pattern: "^[A-Za-z_][A-Za-z0-9._-]*$"
 
-    # JSON Schema for validating request bodies on PUT and PATCH.
+    # Restricted JSON Schema for validating request bodies.
     schema:
       type: object
+      additionalProperties: false
       properties:
         userId:
           type: string
@@ -49,38 +47,32 @@ tables:
     allowTableScan: true
 
     indexes:
-      # Index to look up users by status.
       - name: by_status
         primaryKey:
           field: status
-        # Only return these fields when querying through this index.
         projection:
           type: INCLUDE
           nonKeyAttributes:
             - name
             - status
-        # Allow GET /v1/users/_index/by_status/_items to scan the full index.
         allowIndexScan: true
 
   # --------------------------------------------------------------------------
-  # PK+RK table: "orders"
-  #
-  # Each order line item is identified by orderId (PK) + lineId (RK).
-  # This allows multiple line items per order.
+  # Composite key table: "orders"
   # --------------------------------------------------------------------------
   - name: orders
     primaryKey:
       field: orderId
       pattern: "^[A-Za-z_][A-Za-z0-9._-]*$"
 
-    # Range key enables composite primary keys. Multiple items can share
-    # the same PK as long as the RK is unique.
+    # Range Key enables multiple rows per Primary Key.
     rangeKey:
       field: lineId
       pattern: "^[A-Za-z_][A-Za-z0-9._-]*$"
 
     schema:
       type: object
+      additionalProperties: false
       properties:
         orderId:
           type: string
@@ -101,17 +93,14 @@ tables:
         - lineId
         - customerId
 
-    # Table scan is disabled; queries must use PK or an index.
     allowTableScan: false
 
     indexes:
-      # Index to query all order lines for a given customer.
       - name: by_customer
         primaryKey:
           field: customerId
         allowIndexScan: false
 
-      # Index with a range key to query orders by status, sorted by product.
       - name: by_status
         primaryKey:
           field: status
