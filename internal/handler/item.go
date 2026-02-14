@@ -88,6 +88,7 @@ func (h *Handler) handlePutItem(th *tableHandler) http.HandlerFunc {
 			rkValue = rk
 		}
 
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MB limit
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "failed to read request body")
@@ -170,6 +171,7 @@ func (h *Handler) handlePatchItem(th *tableHandler) http.HandlerFunc {
 			rkValue = rk
 		}
 
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MB limit
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "failed to read request body")
