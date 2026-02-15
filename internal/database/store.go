@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 )
 
 // cursor is the internal representation of a pagination cursor.
@@ -41,6 +42,12 @@ type ItemResult struct {
 	PK   string
 	RK   string
 	Data map[string]interface{}
+}
+
+// ItemForUpdate holds an item payload and its update timestamp for conditional writes.
+type ItemForUpdate struct {
+	Data      map[string]interface{}
+	UpdatedAt time.Time
 }
 
 // ListResult holds a page of items and optional page tokens for pagination.
@@ -102,6 +109,41 @@ func (s *Store) GetItem(ctx context.Context, table string, pk string, rk *string
 	return data, nil
 }
 
+// GetItemForUpdate retrieves an item along with its updated_at timestamp.
+func (s *Store) GetItemForUpdate(ctx context.Context, table string, pk string, rk *string) (*ItemForUpdate, error) {
+	var row *sql.Row
+	if rk != nil {
+		row = s.db.QueryRowContext(ctx,
+			fmt.Sprintf(`SELECT data, updated_at FROM %q WHERE pk = $1 AND rk = $2`, table),
+			pk, *rk,
+		)
+	} else {
+		row = s.db.QueryRowContext(ctx,
+			fmt.Sprintf(`SELECT data, updated_at FROM %q WHERE pk = $1`, table),
+			pk,
+		)
+	}
+
+	var dataBytes []byte
+	var updatedAt time.Time
+	if err := row.Scan(&dataBytes, &updatedAt); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get item for update: %w", err)
+	}
+
+	var data map[string]interface{}
+	if err := json.Unmarshal(dataBytes, &data); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal data: %w", err)
+	}
+
+	return &ItemForUpdate{
+		Data:      data,
+		UpdatedAt: updatedAt,
+	}, nil
+}
+
 // PutItem creates or replaces an item (full upsert).
 // The data column stores the payload WITHOUT pk/rk fields.
 func (s *Store) PutItem(ctx context.Context, table string, pk string, rk *string, data map[string]interface{}) error {
@@ -135,6 +177,47 @@ func (s *Store) PutItem(ctx context.Context, table string, pk string, rk *string
 		return fmt.Errorf("failed to put item: %w", err)
 	}
 	return nil
+}
+
+// PutItemIfUnchanged updates an item only when updated_at still matches expectedUpdatedAt.
+func (s *Store) PutItemIfUnchanged(ctx context.Context, table string, pk string, rk *string, data map[string]interface{}, expectedUpdatedAt time.Time) (bool, error) {
+	dataBytes, err := json.Marshal(data)
+	if err != nil {
+		return false, fmt.Errorf("failed to marshal data: %w", err)
+	}
+
+	var res sql.Result
+	if rk != nil {
+		res, err = s.db.ExecContext(ctx,
+			fmt.Sprintf(
+				`UPDATE %q
+				 SET data = $3, updated_at = now()
+				 WHERE pk = $1 AND rk = $2 AND updated_at = $4`,
+				table,
+			),
+			pk, *rk, dataBytes, expectedUpdatedAt,
+		)
+	} else {
+		res, err = s.db.ExecContext(ctx,
+			fmt.Sprintf(
+				`UPDATE %q
+				 SET data = $2, updated_at = now()
+				 WHERE pk = $1 AND updated_at = $3`,
+				table,
+			),
+			pk, dataBytes, expectedUpdatedAt,
+		)
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to conditionally update item: %w", err)
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("failed to inspect update result: %w", err)
+	}
+
+	return affected > 0, nil
 }
 
 // DeleteItem deletes an item by PK (and optionally RK).

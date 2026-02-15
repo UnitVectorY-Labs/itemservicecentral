@@ -76,13 +76,13 @@ func (m *JWTMiddleware) Handler(next http.Handler) http.Handler {
 
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			http.Error(w, `{"error":"missing authorization header"}`, http.StatusUnauthorized)
+			writeJSONError(w, http.StatusUnauthorized, "missing authorization header")
 			return
 		}
 
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-			http.Error(w, `{"error":"invalid authorization header format"}`, http.StatusUnauthorized)
+			writeJSONError(w, http.StatusUnauthorized, "invalid authorization header format")
 			return
 		}
 
@@ -100,18 +100,27 @@ func (m *JWTMiddleware) Handler(next http.Handler) http.Handler {
 
 		token, err := jwt.Parse(tokenString, m.keyFunc, parserOpts...)
 		if err != nil || !token.Valid {
-			http.Error(w, `{"error":"invalid token"}`, http.StatusUnauthorized)
+			writeJSONError(w, http.StatusUnauthorized, "invalid token")
 			return
 		}
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
-			http.Error(w, `{"error":"invalid token claims"}`, http.StatusUnauthorized)
+			writeJSONError(w, http.StatusUnauthorized, "invalid token claims")
 			return
 		}
 
 		ctx := context.WithValue(r.Context(), ClaimsKey, claims)
 		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func writeJSONError(w http.ResponseWriter, status int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"_type": "error",
+		"error": message,
 	})
 }
 

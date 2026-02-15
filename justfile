@@ -11,4 +11,5 @@ test:
   go test ./...
 
 serve:
+  go run . migrate
   go run . api

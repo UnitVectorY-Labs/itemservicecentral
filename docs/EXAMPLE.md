@@ -24,6 +24,7 @@ tables:
           type: string
         status:
           type: string
+          enum: ["active", "inactive", "banned"]
       required:
         - userId
         - name

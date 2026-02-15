@@ -5,8 +5,26 @@ All endpoints are rooted at `/v1/{table}` and return JSON (`Content-Type: applic
 Error response format:
 
 ```json
-{"error": "error message"}
+{"_type": "error", "error": "error message"}
 ```
+
+Single-item success responses include:
+
+```json
+{
+  "_type": "item",
+  "...": "table fields"
+}
+```
+
+## Swagger / OpenAPI Endpoints (Optional)
+
+When Swagger support is enabled, each table exposes:
+
+- `GET /v1/{table}/_swagger` (embedded Swagger UI HTML)
+- `GET /v1/{table}/_openapi` (generated OpenAPI YAML)
+
+These endpoints are public (no JWT required), even when JWT is enabled for API operations.
 
 ## Item Endpoints
 
@@ -28,6 +46,8 @@ Optional query parameters:
 
 - `fields`: comma-separated fields to return
 
+Success response payload type: `_type: "item"`.
+
 ### PUT - Create or replace an item
 
 Primary Key-only tables:
@@ -43,6 +63,8 @@ PUT /v1/{table}/data/{primaryKey}/{rangeKey}/_item
 ```
 
 The request body is validated against the table schema. If Primary Key or Range Key fields are present in the body, they must match URL values.
+
+Success response payload type: `_type: "item"`.
 
 ### PATCH - Partial update (JSON Merge Patch)
 
@@ -62,7 +84,11 @@ Applies [RFC 7396 JSON Merge Patch](https://tools.ietf.org/html/rfc7396) to the 
 
 - Set a field by including it.
 - Remove a field by setting it to `null`.
+- The request body must include the configured Primary Key field (and Range Key field for composite tables), and those values must match the URL.
 - Item must already exist (`404` if not found).
+- If another write updates the same item between read and write, PATCH returns `409 Conflict`.
+
+Success response payload type: `_type: "item"`.
 
 ### DELETE - Delete an item
 
@@ -86,6 +112,7 @@ List responses are paginated:
 
 ```json
 {
+  "_type": "items",
   "items": [...],
   "_meta": {
     "nextPageToken": "...",
@@ -94,7 +121,7 @@ List responses are paginated:
 }
 ```
 
-`_meta` appears only when pagination tokens exist.
+`_meta` is always present. Token fields are omitted when no token exists.
 
 ### Partition query
 
@@ -163,7 +190,7 @@ Token-based pagination flow:
 1. Request with optional `limit`.
 2. Read `_meta.nextPageToken` when present.
 3. Pass token as `pageToken` on the next request.
-4. When `_meta` is absent, paging is complete.
+4. When `_meta.nextPageToken` is absent, paging is complete.
 
 Page tokens are opaque base64url values encoding the last returned key position.
 
@@ -192,7 +219,12 @@ URL key values must:
 - be non-empty,
 - be at most 512 characters,
 - match `^[A-Za-z_][A-Za-z0-9._-]*$`,
-- match configured key `pattern` expressions.
+- match configured key `pattern` expressions when provided.
+
+OpenAPI path parameter schemas always include key validation constraints:
+
+- `enum` is used when the corresponding key field has an enum in table schema.
+- otherwise `pattern` is used (configured key pattern when set, or the universal minimum pattern `^[A-Za-z_][A-Za-z0-9._-]*$`).
 
 ### JSON Key Rules
 

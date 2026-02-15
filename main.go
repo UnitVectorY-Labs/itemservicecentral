@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/UnitVectorY-Labs/itemservicecentral/internal/handler"
 	"github.com/UnitVectorY-Labs/itemservicecentral/internal/middleware"
 	"github.com/UnitVectorY-Labs/itemservicecentral/internal/schema"
+	swaggerdoc "github.com/UnitVectorY-Labs/itemservicecentral/internal/swagger"
 )
 
 // Version is the application version, injected at build time via ldflags
@@ -45,6 +47,8 @@ func main() {
 		runValidate()
 	case "migrate":
 		runMigrate()
+	case "swagger":
+		runSwagger()
 	case "version":
 		fmt.Println(Version)
 	default:
@@ -58,6 +62,7 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  api       Start the API server")
 	fmt.Fprintln(os.Stderr, "  validate  Validate the configuration file")
 	fmt.Fprintln(os.Stderr, "  migrate   Run database migrations")
+	fmt.Fprintln(os.Stderr, "  swagger   Generate table OpenAPI YAML")
 	fmt.Fprintln(os.Stderr, "  version   Print version")
 	os.Exit(1)
 }
@@ -71,6 +76,33 @@ func envOrDefault(flagVal, flagDefault, envVar string) string {
 	return flagVal
 }
 
+func flagProvided(fs *flag.FlagSet, name string) bool {
+	provided := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			provided = true
+		}
+	})
+	return provided
+}
+
+func resolveSwaggerEnabled(fs *flag.FlagSet, flagValue bool, cfgDefault bool) bool {
+	if flagProvided(fs, "swagger-enabled") {
+		return flagValue
+	}
+
+	envValue, envSet := os.LookupEnv("ISC_SWAGGER_ENABLED")
+	if envSet {
+		parsed, err := strconv.ParseBool(strings.TrimSpace(envValue))
+		if err != nil {
+			log.Fatalf("invalid ISC_SWAGGER_ENABLED value %q: %v", envValue, err)
+		}
+		return parsed
+	}
+
+	return cfgDefault
+}
+
 func runAPI() {
 	fs := flag.NewFlagSet("api", flag.ExitOnError)
 	configPath := fs.String("config", "config.yaml", "Path to config file")
@@ -81,6 +113,7 @@ func runAPI() {
 	dbUser := fs.String("db-user", "", "Database username")
 	dbPassword := fs.String("db-password", "", "Database password")
 	dbSSLMode := fs.String("db-sslmode", "disable", "SSL mode")
+	swaggerEnabledFlag := fs.Bool("swagger-enabled", false, "Enable Swagger UI and OpenAPI endpoints")
 	fs.Parse(os.Args[2:])
 
 	*configPath = envOrDefault(*configPath, "config.yaml", "ISC_CONFIG")
@@ -116,6 +149,8 @@ func runAPI() {
 		log.Fatalf("invalid config: %v", err)
 	}
 
+	cfg.Server.Swagger.Enabled = resolveSwaggerEnabled(fs, *swaggerEnabledFlag, cfg.Server.Swagger.Enabled)
+
 	// Override port from flag/env if set
 	if *port != "" {
 		p, err := strconv.Atoi(*port)
@@ -137,7 +172,10 @@ func runAPI() {
 
 	store := database.NewStore(db)
 
-	h, err := handler.New(store, cfg.Tables)
+	h, err := handler.NewWithOptions(store, cfg.Tables, handler.Options{
+		SwaggerEnabled: cfg.Server.Swagger.Enabled,
+		JWTEnabled:     cfg.Server.JWT.Enabled,
+	})
 	if err != nil {
 		log.Fatalf("failed to create handler: %v", err)
 	}
@@ -155,13 +193,28 @@ func runAPI() {
 	mux := http.NewServeMux()
 	h.SetupRoutes(mux)
 
+	protectedHandler := jwtMw.Handler(mux)
+	apiHandler := protectedHandler
+	if cfg.Server.Swagger.Enabled {
+		apiHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if handler.IsSwaggerRequestPath(r.URL.Path) {
+				mux.ServeHTTP(w, r)
+				return
+			}
+			protectedHandler.ServeHTTP(w, r)
+		})
+	}
+
 	srv := &http.Server{
 		Addr:    ":" + strconv.Itoa(cfg.Server.Port),
-		Handler: jwtMw.Handler(mux),
+		Handler: apiHandler,
 	}
 
 	log.Printf("itemservicecentral %s starting on port %d", Version, cfg.Server.Port)
 	log.Printf("loaded %d table(s)", len(cfg.Tables))
+	if cfg.Server.Swagger.Enabled {
+		log.Printf("swagger endpoints enabled")
+	}
 
 	// Graceful shutdown
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -212,6 +265,51 @@ func runValidate() {
 	}
 
 	fmt.Println("Configuration is valid")
+}
+
+func runSwagger() {
+	fs := flag.NewFlagSet("swagger", flag.ExitOnError)
+	configPath := fs.String("config", "config.yaml", "Path to config file")
+	tableName := fs.String("table", "", "Table name")
+	outputPath := fs.String("output", "", "Write YAML to file (stdout when omitted)")
+	fs.Parse(os.Args[2:])
+
+	*configPath = envOrDefault(*configPath, "config.yaml", "ISC_CONFIG")
+
+	if strings.TrimSpace(*tableName) == "" {
+		log.Fatal("table name is required: set -table")
+	}
+
+	cfg, err := config.Load(*configPath)
+	if err != nil {
+		log.Fatalf("failed to load config: %v", err)
+	}
+
+	if err := config.Validate(cfg); err != nil {
+		log.Fatalf("invalid config: %v", err)
+	}
+
+	table, ok := swaggerdoc.FindTable(cfg.Tables, *tableName)
+	if !ok {
+		log.Fatalf("table %q is not configured", *tableName)
+	}
+	if _, err := schema.Compile(table.Schema); err != nil {
+		log.Fatalf("table %q: schema error: %v", table.Name, err)
+	}
+
+	doc, err := swaggerdoc.GenerateTableYAML(table, cfg.Server.JWT.Enabled)
+	if err != nil {
+		log.Fatalf("failed to generate OpenAPI for table %q: %v", *tableName, err)
+	}
+
+	if *outputPath == "" {
+		fmt.Print(string(doc))
+		return
+	}
+
+	if err := os.WriteFile(*outputPath, doc, 0644); err != nil {
+		log.Fatalf("failed to write OpenAPI file: %v", err)
+	}
 }
 
 func runMigrate() {

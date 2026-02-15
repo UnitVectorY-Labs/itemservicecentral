@@ -12,8 +12,9 @@ import (
 
 // listResponse is the JSON envelope for list endpoints.
 type listResponse struct {
+	Type  string                   `json:"_type"`
 	Items []map[string]interface{} `json:"items"`
-	Meta  *listMeta               `json:"_meta,omitempty"`
+	Meta  listMeta                 `json:"_meta"`
 }
 
 // listMeta holds pagination tokens for list responses.
@@ -51,6 +52,7 @@ func (h *Handler) handleListItems(th *tableHandler) http.HandlerFunc {
 
 		items := projectItems(r, result.Items, th, th.config.PrimaryKey.Field, rkField)
 		writeJSON(w, http.StatusOK, listResponse{
+			Type:  typeItems,
 			Items: items,
 			Meta:  buildListMeta(result),
 		})
@@ -76,6 +78,7 @@ func (h *Handler) handleScanTable(th *tableHandler) http.HandlerFunc {
 
 		items := projectItems(r, result.Items, th, th.config.PrimaryKey.Field, rkField)
 		writeJSON(w, http.StatusOK, listResponse{
+			Type:  typeItems,
 			Items: items,
 			Meta:  buildListMeta(result),
 		})
@@ -89,6 +92,12 @@ func (h *Handler) handleQueryIndex(th *tableHandler, idx config.IndexConfig) htt
 		if err := validate.ValidateKeyValue(indexPk); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
+		}
+		if idx.PrimaryKey.Pattern != "" {
+			if err := validate.ValidateKeyPattern(indexPk, idx.PrimaryKey.Pattern); err != nil {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
 		}
 
 		opts := parseListOptions(r)
@@ -112,6 +121,7 @@ func (h *Handler) handleQueryIndex(th *tableHandler, idx config.IndexConfig) htt
 
 		items := projectIndexItems(r, result.Items, th, th.config.PrimaryKey.Field, rkField, idx)
 		writeJSON(w, http.StatusOK, listResponse{
+			Type:  typeItems,
 			Items: items,
 			Meta:  buildListMeta(result),
 		})
@@ -142,6 +152,7 @@ func (h *Handler) handleScanIndex(th *tableHandler, idx config.IndexConfig) http
 
 		items := projectIndexItems(r, result.Items, th, th.config.PrimaryKey.Field, rkField, idx)
 		writeJSON(w, http.StatusOK, listResponse{
+			Type:  typeItems,
 			Items: items,
 			Meta:  buildListMeta(result),
 		})
@@ -156,11 +167,23 @@ func (h *Handler) handleGetIndexItem(th *tableHandler, idx config.IndexConfig) h
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
+		if idx.PrimaryKey.Pattern != "" {
+			if err := validate.ValidateKeyPattern(indexPk, idx.PrimaryKey.Pattern); err != nil {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+		}
 
 		indexRk := r.PathValue("indexRk")
 		if err := validate.ValidateKeyValue(indexRk); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
+		}
+		if idx.RangeKey.Pattern != "" {
+			if err := validate.ValidateKeyPattern(indexRk, idx.RangeKey.Pattern); err != nil {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
 		}
 
 		iqc := database.IndexQueryConfig{
@@ -188,7 +211,7 @@ func (h *Handler) handleGetIndexItem(th *tableHandler, idx config.IndexConfig) h
 		data := model.InjectKeys(result.Data, th.config.PrimaryKey.Field, result.PK, rkField, rkValue)
 		data = applyIndexProjection(r, data, th, idx)
 
-		writeJSON(w, http.StatusOK, data)
+		writeJSON(w, http.StatusOK, itemPayload(data))
 	}
 }
 
@@ -212,11 +235,8 @@ func parseListOptions(r *http.Request) database.ListOptions {
 }
 
 // buildListMeta creates a listMeta from a ListResult, returning nil when there are no tokens.
-func buildListMeta(result *database.ListResult) *listMeta {
-	if result.NextPageToken == "" && result.PreviousPageToken == "" {
-		return nil
-	}
-	return &listMeta{
+func buildListMeta(result *database.ListResult) listMeta {
+	return listMeta{
 		NextPageToken:     result.NextPageToken,
 		PreviousPageToken: result.PreviousPageToken,
 	}

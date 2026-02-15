@@ -7,7 +7,7 @@ itemservicecentral has two configuration layers:
 
 ## Runtime Options (Flags and Environment Variables)
 
-Every flag has a corresponding environment variable. If both are set, the flag value is used.
+Most runtime flags have a corresponding environment variable. If both are set, the flag value is used.
 
 ### Common Runtime Options
 
@@ -15,13 +15,14 @@ These options are shared across commands.
 
 | Flag | Environment Variable | Commands | Default | Description |
 |------|----------------------|----------|---------|-------------|
-| `-config` | `ISC_CONFIG` | `api`, `validate`, `migrate` | `config.yaml` | Path to YAML configuration file |
+| `-config` | `ISC_CONFIG` | `api`, `validate`, `migrate`, `swagger` | `config.yaml` | Path to YAML configuration file |
 | `-db-host` | `ISC_DB_HOST` | `api`, `migrate` | `localhost` | PostgreSQL host |
 | `-db-port` | `ISC_DB_PORT` | `api`, `migrate` | `5432` | PostgreSQL port |
 | `-db-name` | `ISC_DB_NAME` | `api`, `migrate` | required | PostgreSQL database name |
 | `-db-user` | `ISC_DB_USER` | `api`, `migrate` | required | PostgreSQL username |
 | `-db-password` | `ISC_DB_PASSWORD` | `api`, `migrate` | required | PostgreSQL password |
 | `-db-sslmode` | `ISC_DB_SSLMODE` | `api`, `migrate` | `disable` | PostgreSQL SSL mode |
+| `-swagger-enabled` | `ISC_SWAGGER_ENABLED` | `api` | `false` | Enable public Swagger/OpenAPI endpoints for each table |
 
 ### Command-Specific Runtime Options
 
@@ -30,6 +31,7 @@ These options are shared across commands.
 | Flag | Environment Variable | Default | Description |
 |------|----------------------|---------|-------------|
 | `-port` | `ISC_PORT` | `8080` | HTTP listen port (overrides `server.port` in YAML) |
+| `-swagger-enabled` | `ISC_SWAGGER_ENABLED` | `false` | Overrides `server.swagger.enabled` |
 
 `validate`:
 
@@ -42,6 +44,13 @@ These options are shared across commands.
 | `-cleanup` | — | `false` | Remove tables and indexes not present in config |
 | `-dry-run` | — | `false` | Print planned migration changes only |
 
+`swagger`:
+
+| Flag | Environment Variable | Default | Description |
+|------|----------------------|---------|-------------|
+| `-table` | — | required | Table name to generate OpenAPI for |
+| `-output` | — | stdout | Output path for generated YAML |
+
 ## YAML Configuration File
 
 The YAML file defines the service contract. See [example-config.yaml](./example-config.yaml).
@@ -52,6 +61,8 @@ The YAML file defines the service contract. See [example-config.yaml](./example-
 server:
   port: 8080
   jwt:
+    enabled: false
+  swagger:
     enabled: false
 
 tables:
@@ -79,6 +90,7 @@ tables:
 | `server.jwt.jwksUrl` | When JWT enabled | — | JWKS endpoint for RS256 public keys. |
 | `server.jwt.issuer` | No | — | Expected `iss` claim value. |
 | `server.jwt.audience` | No | — | Expected `aud` claim value. |
+| `server.swagger.enabled` | No | `false` | Enables public per-table `/_swagger` and `/_openapi` endpoints. |
 
 ### `tables` Section
 
@@ -161,4 +173,5 @@ Index field constraints:
 
 - [Database Model and Migrations](./DATABASE.md)
 - [API Reference](./API.md)
+- [Swagger / OpenAPI](./SWAGGER.md)
 - [CLI Usage](./USAGE.md)
