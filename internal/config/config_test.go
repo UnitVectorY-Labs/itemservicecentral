@@ -1,0 +1,1130 @@
+package config
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+// helper to write a temp YAML file and return its path
+func writeTempConfig(t *testing.T, content string) string {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatalf("writing temp config: %v", err)
+	}
+	return path
+}
+
+// minimal valid config YAML
+const validYAML = `
+server:
+  port: 9090
+  jwt:
+    enabled: true
+    jwksUrl: https://example.com/.well-known/jwks.json
+    issuer: https://example.com
+    audience: my-api
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z0-9]+$"
+    schema:
+      type: object
+      additionalProperties: false
+`
+
+func TestLoad_ValidFile(t *testing.T) {
+	path := writeTempConfig(t, validYAML)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Server.Port != 9090 {
+		t.Errorf("expected port 9090, got %d", cfg.Server.Port)
+	}
+	if !cfg.Server.JWT.Enabled {
+		t.Error("expected JWT to be enabled")
+	}
+	if len(cfg.Tables) != 1 {
+		t.Fatalf("expected 1 table, got %d", len(cfg.Tables))
+	}
+	if cfg.Tables[0].Name != "users" {
+		t.Errorf("expected table name 'users', got %q", cfg.Tables[0].Name)
+	}
+	if cfg.Tables[0].PrimaryKey.Field != "userId" {
+		t.Errorf("expected primaryKey field 'userId', got %q", cfg.Tables[0].PrimaryKey.Field)
+	}
+	if cfg.Tables[0].RangeKey != nil {
+		t.Error("expected rangeKey to be nil")
+	}
+}
+
+func TestLoad_FileNotFound(t *testing.T) {
+	_, err := Load("/nonexistent/path/config.yaml")
+	if err == nil {
+		t.Fatal("expected error for missing file")
+	}
+}
+
+func TestLoad_InvalidYAML(t *testing.T) {
+	path := writeTempConfig(t, "{{invalid yaml")
+	_, err := Load(path)
+	if err == nil {
+		t.Fatal("expected error for invalid YAML")
+	}
+}
+
+func TestValidate_ValidConfig(t *testing.T) {
+	path := writeTempConfig(t, validYAML)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := Validate(cfg); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+}
+
+func TestValidate_DefaultPort(t *testing.T) {
+	yaml := `
+tables:
+  - name: items
+    primaryKey:
+      field: itemId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      additionalProperties: false
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := Validate(cfg); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+	if cfg.Server.Port != 8080 {
+		t.Errorf("expected default port 8080, got %d", cfg.Server.Port)
+	}
+}
+
+func TestValidate_NoTables(t *testing.T) {
+	yaml := `
+server:
+  port: 8080
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for no tables")
+	}
+	if !strings.Contains(err.Error(), "at least one table") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_DuplicateTableName(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      additionalProperties: false
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      additionalProperties: false
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for duplicate table name")
+	}
+	if !strings.Contains(err.Error(), "duplicate table name") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_InvalidTableName(t *testing.T) {
+	yaml := `
+tables:
+  - name: Users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      additionalProperties: false
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for invalid table name")
+	}
+	if !strings.Contains(err.Error(), "must match") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_MissingTableName(t *testing.T) {
+	yaml := `
+tables:
+  - primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      additionalProperties: false
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for missing table name")
+	}
+	if !strings.Contains(err.Error(), "name is required") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_MissingPKField(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      additionalProperties: false
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for missing pk field")
+	}
+	if !strings.Contains(err.Error(), "primaryKey field is required") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_MissingPKPattern(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+    schema:
+      type: object
+      additionalProperties: false
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for missing pk pattern")
+	}
+	if !strings.Contains(err.Error(), "primaryKey pattern is required") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_RKFieldAndPattern(t *testing.T) {
+	yaml := `
+tables:
+  - name: orders
+    primaryKey:
+      field: orderId
+      pattern: "^[a-z]+$"
+    rangeKey:
+      field: itemId
+      pattern: "^[0-9]+$"
+    schema:
+      type: object
+      additionalProperties: false
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := Validate(cfg); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+}
+
+func TestValidate_RKMissingField(t *testing.T) {
+	yaml := `
+tables:
+  - name: orders
+    primaryKey:
+      field: orderId
+      pattern: "^[a-z]+$"
+    rangeKey:
+      pattern: "^[0-9]+$"
+    schema:
+      type: object
+      additionalProperties: false
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for missing rk field")
+	}
+	if !strings.Contains(err.Error(), "rangeKey field is required") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_RKMissingPattern(t *testing.T) {
+	yaml := `
+tables:
+  - name: orders
+    primaryKey:
+      field: orderId
+      pattern: "^[a-z]+$"
+    rangeKey:
+      field: itemId
+    schema:
+      type: object
+      additionalProperties: false
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for missing rk pattern")
+	}
+	if !strings.Contains(err.Error(), "rangeKey pattern is required") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_PKAndRKSameField(t *testing.T) {
+	yaml := `
+tables:
+  - name: orders
+    primaryKey:
+      field: orderId
+      pattern: "^[a-z]+$"
+    rangeKey:
+      field: orderId
+      pattern: "^[0-9]+$"
+    schema:
+      type: object
+      additionalProperties: false
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for same pk and rk field")
+	}
+	if !strings.Contains(err.Error(), "primaryKey field and rangeKey field must be different") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_MissingSchema(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for missing schema")
+	}
+	if !strings.Contains(err.Error(), "schema is required") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_IndexValid(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      additionalProperties: false
+    indexes:
+      - name: by_email
+        primaryKey:
+          field: email
+          pattern: "^.+$"
+        projection:
+          type: INCLUDE
+          nonKeyAttributes:
+            - userId
+            - email
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := Validate(cfg); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+}
+
+func TestValidate_DuplicateIndexName(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      additionalProperties: false
+    indexes:
+      - name: by_email
+        primaryKey:
+          field: email
+          pattern: "^.+$"
+      - name: by_email
+        primaryKey:
+          field: name
+          pattern: "^.+$"
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for duplicate index name")
+	}
+	if !strings.Contains(err.Error(), "duplicate index name") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_InvalidIndexName(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      additionalProperties: false
+    indexes:
+      - name: ByEmail
+        primaryKey:
+          field: email
+          pattern: "^.+$"
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for invalid index name")
+	}
+	if !strings.Contains(err.Error(), "must match") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_IndexPKSameAsBasePK(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      additionalProperties: false
+    indexes:
+      - name: by_user
+        primaryKey:
+          field: userId
+          pattern: "^.+$"
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for index pk same as base pk")
+	}
+	if !strings.Contains(err.Error(), "different from base primaryKey") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_IndexPKSameAsBaseRK(t *testing.T) {
+	yaml := `
+tables:
+  - name: orders
+    primaryKey:
+      field: orderId
+      pattern: "^[a-z]+$"
+    rangeKey:
+      field: itemId
+      pattern: "^[0-9]+$"
+    schema:
+      type: object
+      additionalProperties: false
+    indexes:
+      - name: by_item
+        primaryKey:
+          field: itemId
+          pattern: "^.+$"
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for index pk same as base rk")
+	}
+	if !strings.Contains(err.Error(), "different from base rangeKey") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_IndexRKSameAsBasePK(t *testing.T) {
+	yaml := `
+tables:
+  - name: orders
+    primaryKey:
+      field: orderId
+      pattern: "^[a-z]+$"
+    rangeKey:
+      field: itemId
+      pattern: "^[0-9]+$"
+    schema:
+      type: object
+      additionalProperties: false
+    indexes:
+      - name: by_status
+        primaryKey:
+          field: status
+          pattern: "^.+$"
+        rangeKey:
+          field: orderId
+          pattern: "^.+$"
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for index rk same as base pk")
+	}
+	if !strings.Contains(err.Error(), "different from base primaryKey") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_IndexRKSameAsBaseRK(t *testing.T) {
+	yaml := `
+tables:
+  - name: orders
+    primaryKey:
+      field: orderId
+      pattern: "^[a-z]+$"
+    rangeKey:
+      field: itemId
+      pattern: "^[0-9]+$"
+    schema:
+      type: object
+      additionalProperties: false
+    indexes:
+      - name: by_status
+        primaryKey:
+          field: status
+          pattern: "^.+$"
+        rangeKey:
+          field: itemId
+          pattern: "^.+$"
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for index rk same as base rk")
+	}
+	if !strings.Contains(err.Error(), "different from base rangeKey") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_IndexRKSameAsIndexPK(t *testing.T) {
+	yaml := `
+tables:
+  - name: orders
+    primaryKey:
+      field: orderId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      additionalProperties: false
+    indexes:
+      - name: by_status
+        primaryKey:
+          field: status
+          pattern: "^.+$"
+        rangeKey:
+          field: status
+          pattern: "^.+$"
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for index rk same as index pk")
+	}
+	if !strings.Contains(err.Error(), "different from index primaryKey") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_InvalidKeyFieldName(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: "123bad"
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      additionalProperties: false
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for invalid key field name")
+	}
+	if !strings.Contains(err.Error(), "must match") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_IndexWithRKValid(t *testing.T) {
+	yaml := `
+tables:
+  - name: orders
+    primaryKey:
+      field: orderId
+      pattern: "^[a-z]+$"
+    rangeKey:
+      field: itemId
+      pattern: "^[0-9]+$"
+    schema:
+      type: object
+      additionalProperties: false
+    indexes:
+      - name: by_status
+        primaryKey:
+          field: status
+          pattern: "^.+$"
+        rangeKey:
+          field: createdAt
+          pattern: "^.+$"
+        projection:
+          type: INCLUDE
+          nonKeyAttributes:
+            - orderId
+            - status
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := Validate(cfg); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+}
+
+func TestValidate_MissingIndexPKField(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      additionalProperties: false
+    indexes:
+      - name: by_email
+        primaryKey:
+          pattern: "^.+$"
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for missing index pk field")
+	}
+	if !strings.Contains(err.Error(), "primaryKey field is required") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_MissingIndexName(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      additionalProperties: false
+    indexes:
+      - primaryKey:
+          field: email
+          pattern: "^.+$"
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for missing index name")
+	}
+	if !strings.Contains(err.Error(), "name is required") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_ProjectionTypeALL(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      additionalProperties: false
+    indexes:
+      - name: by_email
+        primaryKey:
+          field: email
+          pattern: "^.+$"
+        projection:
+          type: ALL
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := Validate(cfg); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+}
+
+func TestValidate_ProjectionTypeKEYS_ONLY(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      additionalProperties: false
+    indexes:
+      - name: by_email
+        primaryKey:
+          field: email
+          pattern: "^.+$"
+        projection:
+          type: KEYS_ONLY
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := Validate(cfg); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+}
+
+func TestValidate_ProjectionInvalidType(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      additionalProperties: false
+    indexes:
+      - name: by_email
+        primaryKey:
+          field: email
+          pattern: "^.+$"
+        projection:
+          type: INVALID
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for invalid projection type")
+	}
+	if !strings.Contains(err.Error(), "projection type must be one of") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_ProjectionIncludeWithoutNonKeyAttributes(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      additionalProperties: false
+    indexes:
+      - name: by_email
+        primaryKey:
+          field: email
+          pattern: "^.+$"
+        projection:
+          type: INCLUDE
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for INCLUDE without nonKeyAttributes")
+	}
+	if !strings.Contains(err.Error(), "nonKeyAttributes must not be empty") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_ProjectionALLWithNonKeyAttributes(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      additionalProperties: false
+    indexes:
+      - name: by_email
+        primaryKey:
+          field: email
+          pattern: "^.+$"
+        projection:
+          type: ALL
+          nonKeyAttributes:
+            - name
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for ALL with nonKeyAttributes")
+	}
+	if !strings.Contains(err.Error(), "nonKeyAttributes must be empty") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_SchemaMissingPKProperty(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for schema missing PK property")
+	}
+	if !strings.Contains(err.Error(), `schema must define property "userId" for primaryKey field`) {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_SchemaPKNotString(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      additionalProperties: false
+      properties:
+        userId:
+          type: number
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for PK not string type")
+	}
+	if !strings.Contains(err.Error(), `schema property "userId" for primaryKey must have type "string"`) {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_SchemaPKMissingPattern(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      additionalProperties: false
+      properties:
+        userId:
+          type: string
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for PK missing pattern")
+	}
+	if !strings.Contains(err.Error(), `schema property "userId" for primaryKey must have a "pattern" constraint`) {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_SchemaRKMissingPattern(t *testing.T) {
+	yaml := `
+tables:
+  - name: orders
+    primaryKey:
+      field: orderId
+      pattern: "^[a-z]+$"
+    rangeKey:
+      field: itemId
+      pattern: "^[0-9]+$"
+    schema:
+      type: object
+      additionalProperties: false
+      properties:
+        orderId:
+          type: string
+          pattern: "^[a-z]+$"
+        itemId:
+          type: string
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for RK missing pattern")
+	}
+	if !strings.Contains(err.Error(), `schema property "itemId" for rangeKey must have a "pattern" constraint`) {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_SchemaWithValidPatterns(t *testing.T) {
+	yaml := `
+tables:
+  - name: orders
+    primaryKey:
+      field: orderId
+      pattern: "^[a-z]+$"
+    rangeKey:
+      field: itemId
+      pattern: "^[0-9]+$"
+    schema:
+      type: object
+      additionalProperties: false
+      properties:
+        orderId:
+          type: string
+          pattern: "^[a-z]+$"
+        itemId:
+          type: string
+          pattern: "^[0-9]+$"
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := Validate(cfg); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+}
+
+func TestValidate_SchemaMissingAdditionalProperties(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      properties:
+        userId:
+          type: string
+          pattern: "^[a-z]+$"
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for missing additionalProperties")
+	}
+	if !strings.Contains(err.Error(), "must set additionalProperties to false") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_SchemaRejectsRef(t *testing.T) {
+	yaml := `
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z]+$"
+    schema:
+      type: object
+      additionalProperties: false
+      $ref: "#/$defs/user"
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for unsupported $ref")
+	}
+	if !strings.Contains(err.Error(), `unsupported keyword "$ref"`) {
+		t.Errorf("unexpected error: %v", err)
+	}
+}

@@ -1,0 +1,115 @@
+# itemservicecentral Example Configuration
+#
+# This file demonstrates a complete configuration with both single-key and
+# composite-key tables, indexes, and available options.
+
+server:
+  # HTTP listen port (default: 8080). Can be overridden with -port or ISC_PORT.
+  port: 8080
+
+  jwt:
+    # Set to true to require a valid RS256 JWT on every request.
+    enabled: false
+    # jwksUrl: "https://auth.example.com/.well-known/jwks.json"
+    # issuer: "https://auth.example.com"
+    # audience: "my-api"
+
+tables:
+  # --------------------------------------------------------------------------
+  # Primary Key-only table: "users"
+  # --------------------------------------------------------------------------
+  - name: users
+    primaryKey:
+      # JSON field used as the table Primary Key.
+      field: userId
+      # Regex that Primary Key values in URLs must match.
+      pattern: "^[A-Za-z_][A-Za-z0-9._-]*$"
+
+    # Restricted JSON Schema for validating request bodies.
+    schema:
+      type: object
+      additionalProperties: false
+      properties:
+        userId:
+          type: string
+          pattern: "^[A-Za-z_][A-Za-z0-9._-]*$"
+        name:
+          type: string
+        email:
+          type: string
+        status:
+          type: string
+      required:
+        - userId
+        - name
+
+    # Allow GET /v1/users/_items to scan the full table.
+    allowTableScan: true
+
+    indexes:
+      - name: by_status
+        primaryKey:
+          field: status
+        projection:
+          type: INCLUDE
+          nonKeyAttributes:
+            - name
+            - status
+        allowIndexScan: true
+
+  # --------------------------------------------------------------------------
+  # Composite key table: "orders"
+  # --------------------------------------------------------------------------
+  - name: orders
+    primaryKey:
+      field: orderId
+      pattern: "^[A-Za-z_][A-Za-z0-9._-]*$"
+
+    # Range Key enables multiple rows per Primary Key.
+    rangeKey:
+      field: lineId
+      pattern: "^[A-Za-z_][A-Za-z0-9._-]*$"
+
+    schema:
+      type: object
+      additionalProperties: false
+      properties:
+        orderId:
+          type: string
+          pattern: "^[A-Za-z_][A-Za-z0-9._-]*$"
+        lineId:
+          type: string
+          pattern: "^[A-Za-z_][A-Za-z0-9._-]*$"
+        customerId:
+          type: string
+        product:
+          type: string
+        amount:
+          type: number
+        status:
+          type: string
+      required:
+        - orderId
+        - lineId
+        - customerId
+
+    allowTableScan: false
+
+    indexes:
+      - name: by_customer
+        primaryKey:
+          field: customerId
+        allowIndexScan: false
+
+      - name: by_status
+        primaryKey:
+          field: status
+        rangeKey:
+          field: product
+        projection:
+          type: INCLUDE
+          nonKeyAttributes:
+            - orderId
+            - lineId
+            - amount
+        allowIndexScan: true
