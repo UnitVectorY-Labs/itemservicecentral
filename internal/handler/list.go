@@ -13,7 +13,7 @@ import (
 // listResponse is the JSON envelope for list endpoints.
 type listResponse struct {
 	Items []map[string]interface{} `json:"items"`
-	Meta  *listMeta               `json:"_meta,omitempty"`
+	Meta  listMeta                 `json:"_meta"`
 }
 
 // listMeta holds pagination tokens for list responses.
@@ -212,11 +212,8 @@ func parseListOptions(r *http.Request) database.ListOptions {
 }
 
 // buildListMeta creates a listMeta from a ListResult, returning nil when there are no tokens.
-func buildListMeta(result *database.ListResult) *listMeta {
-	if result.NextPageToken == "" && result.PreviousPageToken == "" {
-		return nil
-	}
-	return &listMeta{
+func buildListMeta(result *database.ListResult) listMeta {
+	return listMeta{
 		NextPageToken:     result.NextPageToken,
 		PreviousPageToken: result.PreviousPageToken,
 	}

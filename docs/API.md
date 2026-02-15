@@ -71,7 +71,9 @@ Applies [RFC 7396 JSON Merge Patch](https://tools.ietf.org/html/rfc7396) to the 
 
 - Set a field by including it.
 - Remove a field by setting it to `null`.
+- The request body must include the configured Primary Key field (and Range Key field for composite tables), and those values must match the URL.
 - Item must already exist (`404` if not found).
+- If another write updates the same item between read and write, PATCH returns `409 Conflict`.
 
 ### DELETE - Delete an item
 
@@ -103,7 +105,7 @@ List responses are paginated:
 }
 ```
 
-`_meta` appears only when pagination tokens exist.
+`_meta` is always present. Token fields are omitted when no token exists.
 
 ### Partition query
 
@@ -172,7 +174,7 @@ Token-based pagination flow:
 1. Request with optional `limit`.
 2. Read `_meta.nextPageToken` when present.
 3. Pass token as `pageToken` on the next request.
-4. When `_meta` is absent, paging is complete.
+4. When `_meta.nextPageToken` is absent, paging is complete.
 
 Page tokens are opaque base64url values encoding the last returned key position.
 

@@ -109,7 +109,7 @@ func (h *Handler) handlePutItem(th *tableHandler) http.HandlerFunc {
 		// Verify pk in body matches URL
 		if bodyPK, ok := doc[th.config.PrimaryKey.Field]; ok {
 			if s, ok := bodyPK.(string); !ok || s != pk {
-				writeError(w, http.StatusBadRequest, "pk in body does not match URL")
+				writeError(w, http.StatusBadRequest, "primaryKey in body does not match URL")
 				return
 			}
 		}
@@ -118,7 +118,7 @@ func (h *Handler) handlePutItem(th *tableHandler) http.HandlerFunc {
 		if th.config.RangeKey != nil {
 			if bodyRK, ok := doc[th.config.RangeKey.Field]; ok {
 				if s, ok := bodyRK.(string); !ok || s != rkValue {
-					writeError(w, http.StatusBadRequest, "rk in body does not match URL")
+					writeError(w, http.StatusBadRequest, "rangeKey in body does not match URL")
 					return
 				}
 			}
@@ -189,25 +189,31 @@ func (h *Handler) handlePatchItem(th *tableHandler) http.HandlerFunc {
 			return
 		}
 
-		// Verify pk in patch matches URL
-		if bodyPK, ok := patch[th.config.PrimaryKey.Field]; ok {
-			if s, ok := bodyPK.(string); !ok || s != pk {
-				writeError(w, http.StatusBadRequest, "pk in body does not match URL")
+		// Require pk in patch body and verify it matches URL.
+		bodyPK, ok := patch[th.config.PrimaryKey.Field]
+		if !ok {
+			writeError(w, http.StatusBadRequest, th.config.PrimaryKey.Field+" in body is required")
+			return
+		}
+		if s, ok := bodyPK.(string); !ok || s != pk {
+			writeError(w, http.StatusBadRequest, "primaryKey in body does not match URL")
+			return
+		}
+
+		// Require rk in patch body and verify it matches URL.
+		if th.config.RangeKey != nil {
+			bodyRK, ok := patch[th.config.RangeKey.Field]
+			if !ok {
+				writeError(w, http.StatusBadRequest, th.config.RangeKey.Field+" in body is required")
+				return
+			}
+			if s, ok := bodyRK.(string); !ok || s != rkValue {
+				writeError(w, http.StatusBadRequest, "rangeKey in body does not match URL")
 				return
 			}
 		}
 
-		// Verify rk in patch matches URL
-		if th.config.RangeKey != nil {
-			if bodyRK, ok := patch[th.config.RangeKey.Field]; ok {
-				if s, ok := bodyRK.(string); !ok || s != rkValue {
-					writeError(w, http.StatusBadRequest, "rk in body does not match URL")
-					return
-				}
-			}
-		}
-
-		existing, err := h.store.GetItem(r.Context(), th.config.Name, pk, rkPtr)
+		existing, err := h.store.GetItemForUpdate(r.Context(), th.config.Name, pk, rkPtr)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to get item")
 			return
@@ -217,7 +223,7 @@ func (h *Handler) handlePatchItem(th *tableHandler) http.HandlerFunc {
 			return
 		}
 
-		merged := model.MergePatch(existing, patch)
+		merged := model.MergePatch(existing.Data, patch)
 		mergedWithKeys := model.InjectKeys(merged, th.config.PrimaryKey.Field, pk, rkField, rkValue)
 
 		if err := th.validator.Validate(mergedWithKeys); err != nil {
@@ -226,8 +232,13 @@ func (h *Handler) handlePatchItem(th *tableHandler) http.HandlerFunc {
 		}
 
 		stripped := model.StripKeys(mergedWithKeys, th.config.PrimaryKey.Field, rkField)
-		if err := h.store.PutItem(r.Context(), th.config.Name, pk, rkPtr, stripped); err != nil {
+		updated, err := h.store.PutItemIfUnchanged(r.Context(), th.config.Name, pk, rkPtr, stripped, existing.UpdatedAt)
+		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to put item")
+			return
+		}
+		if !updated {
+			writeError(w, http.StatusConflict, "item was modified by another request")
 			return
 		}
 

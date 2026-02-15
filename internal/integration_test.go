@@ -332,6 +332,7 @@ func TestPatchItem_PKOnly(t *testing.T) {
 	resp.Body.Close()
 
 	patchResp := patchItem(t, testServer, "/v1/items/data/itemPatch/_item", map[string]interface{}{
+		"itemId": "itemPatch",
 		"status": "active",
 	})
 	if patchResp.StatusCode != http.StatusOK {
@@ -351,6 +352,7 @@ func TestPatchItem_PKOnly(t *testing.T) {
 
 func TestPatchItem_PKOnly_NotFound(t *testing.T) {
 	resp := patchItem(t, testServer, "/v1/items/data/noSuchItem/_item", map[string]interface{}{
+		"itemId": "noSuchItem",
 		"status": "active",
 	})
 	if resp.StatusCode != http.StatusNotFound {
@@ -654,7 +656,9 @@ func TestPatchItem_PKRK(t *testing.T) {
 	resp.Body.Close()
 
 	patchResp := patchItem(t, testServer, "/v1/orders/data/orderPatch/linePatch/_item", map[string]interface{}{
-		"amount": 99.0,
+		"orderId": "orderPatch",
+		"lineId":  "linePatch",
+		"amount":  99.0,
 	})
 	if patchResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200 on PATCH, got %d", patchResp.StatusCode)

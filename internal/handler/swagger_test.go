@@ -61,6 +61,9 @@ func TestSwaggerEndpointsEnabled(t *testing.T) {
 	if !strings.Contains(bodyText, "bearerAuth") {
 		t.Fatalf("expected bearer auth to be present when JWT is enabled")
 	}
+	if !strings.Contains(bodyText, "/v1/items/data/{itemId}/_item:") {
+		t.Fatalf("expected configured key field name in openapi path")
+	}
 }
 
 func TestSwaggerEndpointsDisabled(t *testing.T) {

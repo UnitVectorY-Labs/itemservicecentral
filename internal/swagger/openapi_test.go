@@ -39,16 +39,16 @@ func TestGenerateTableYAML_PKOnly(t *testing.T) {
 	doc := parseDoc(t, table, false)
 	paths := asMap(t, doc["paths"])
 
-	requirePath(t, paths, "/v1/items/data/{pk}/_item")
-	requirePath(t, paths, "/v1/items/data/{pk}/_items")
+	requirePath(t, paths, "/v1/items/data/{itemId}/_item")
+	requirePath(t, paths, "/v1/items/data/{itemId}/_items")
 	requirePath(t, paths, "/v1/items/_items")
-	requirePath(t, paths, "/v1/items/_index/by_status/{indexPk}/_items")
+	requirePath(t, paths, "/v1/items/_index/by_status/{status}/_items")
 	requirePath(t, paths, "/v1/items/_index/by_status/_items")
-	forbiddenPath(t, paths, "/v1/items/data/{pk}/{rk}/_item")
+	forbiddenPath(t, paths, "/v1/items/data/{itemId}/{lineId}/_item")
 
-	op := getOperation(t, paths, "/v1/items/data/{pk}/_items", "get")
+	op := getOperation(t, paths, "/v1/items/data/{itemId}/_items", "get")
 	paramNames := parameterNames(t, op)
-	requireParam(t, paramNames, "pk")
+	requireParam(t, paramNames, "itemId")
 	requireParam(t, paramNames, "limit")
 	requireParam(t, paramNames, "pageToken")
 	requireParam(t, paramNames, "fields")
@@ -93,13 +93,13 @@ func TestGenerateTableYAML_CompositeAndIndexRangeKey(t *testing.T) {
 	doc := parseDoc(t, table, false)
 	paths := asMap(t, doc["paths"])
 
-	requirePath(t, paths, "/v1/orders/data/{pk}/{rk}/_item")
-	requirePath(t, paths, "/v1/orders/data/{pk}/_items")
-	requirePath(t, paths, "/v1/orders/_index/by_status/{indexPk}/_items")
-	requirePath(t, paths, "/v1/orders/_index/by_status/{indexPk}/{indexRk}/_item")
+	requirePath(t, paths, "/v1/orders/data/{orderId}/{lineId}/_item")
+	requirePath(t, paths, "/v1/orders/data/{orderId}/_items")
+	requirePath(t, paths, "/v1/orders/_index/by_status/{status}/_items")
+	requirePath(t, paths, "/v1/orders/_index/by_status/{status}/{sortKey}/_item")
 	forbiddenPath(t, paths, "/v1/orders/_items")
 
-	partitionOp := getOperation(t, paths, "/v1/orders/data/{pk}/_items", "get")
+	partitionOp := getOperation(t, paths, "/v1/orders/data/{orderId}/_items", "get")
 	partitionParams := parameterNames(t, partitionOp)
 	requireParam(t, partitionParams, "rkBeginsWith")
 	requireParam(t, partitionParams, "rkGt")
@@ -107,9 +107,51 @@ func TestGenerateTableYAML_CompositeAndIndexRangeKey(t *testing.T) {
 	requireParam(t, partitionParams, "rkLt")
 	requireParam(t, partitionParams, "rkLte")
 
-	indexQueryOp := getOperation(t, paths, "/v1/orders/_index/by_status/{indexPk}/_items", "get")
+	indexQueryOp := getOperation(t, paths, "/v1/orders/_index/by_status/{status}/_items", "get")
 	indexParams := parameterNames(t, indexQueryOp)
+	requireParam(t, indexParams, "status")
 	requireParam(t, indexParams, "rkBeginsWith")
+}
+
+func TestGenerateTableYAML_PatchSchemaRequiresKeys(t *testing.T) {
+	table := config.TableConfig{
+		Name: "orders",
+		PrimaryKey: config.KeyConfig{
+			Field: "orderId",
+		},
+		RangeKey: &config.KeyConfig{
+			Field: "lineId",
+		},
+		Schema: map[string]interface{}{
+			"type":                 "object",
+			"additionalProperties": false,
+			"properties": map[string]interface{}{
+				"orderId": map[string]interface{}{"type": "string"},
+				"lineId":  map[string]interface{}{"type": "string"},
+				"amount":  map[string]interface{}{"type": "number"},
+			},
+			"required": []interface{}{"orderId", "lineId", "amount"},
+		},
+	}
+
+	doc := parseDoc(t, table, false)
+	components := asMap(t, doc["components"])
+	schemas := asMap(t, components["schemas"])
+	patchItem := asMap(t, schemas["PatchItem"])
+	required, ok := patchItem["required"].([]interface{})
+	if !ok {
+		t.Fatalf("expected PatchItem.required")
+	}
+	if len(required) != 2 || required[0] != "orderId" || required[1] != "lineId" {
+		t.Fatalf("expected required keys [orderId lineId], got %#v", required)
+	}
+
+	props := asMap(t, patchItem["properties"])
+	amount := asMap(t, props["amount"])
+	nullable, _ := amount["nullable"].(bool)
+	if !nullable {
+		t.Fatalf("expected non-key patch properties to be nullable")
+	}
 }
 
 func TestGenerateTableYAML_WithJWTSecurity(t *testing.T) {
@@ -135,6 +177,16 @@ func TestGenerateTableYAML_WithJWTSecurity(t *testing.T) {
 	security, ok := doc["security"].([]interface{})
 	if !ok || len(security) == 0 {
 		t.Fatalf("expected top-level security requirements, got: %#v", doc["security"])
+	}
+
+	schemas := asMap(t, components["schemas"])
+	listResponse := asMap(t, schemas["ListResponse"])
+	required, ok := listResponse["required"].([]interface{})
+	if !ok {
+		t.Fatalf("expected ListResponse.required")
+	}
+	if len(required) != 2 || required[0] != "items" || required[1] != "_meta" {
+		t.Fatalf("expected ListResponse required fields [items _meta], got %#v", required)
 	}
 }
 

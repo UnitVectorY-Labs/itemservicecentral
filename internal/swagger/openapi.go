@@ -9,6 +9,33 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type orderedEntry struct {
+	Key   string
+	Value interface{}
+}
+
+type orderedMap []orderedEntry
+
+func (m orderedMap) MarshalYAML() (interface{}, error) {
+	node := &yaml.Node{
+		Kind: yaml.MappingNode,
+		Tag:  "!!map",
+	}
+	for _, entry := range m {
+		key := &yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Tag:   "!!str",
+			Value: entry.Key,
+		}
+		value := &yaml.Node{}
+		if err := value.Encode(entry.Value); err != nil {
+			return nil, err
+		}
+		node.Content = append(node.Content, key, value)
+	}
+	return node, nil
+}
+
 // Provider lazily generates and caches per-table OpenAPI YAML documents.
 type Provider struct {
 	jwtEnabled bool
@@ -81,140 +108,208 @@ func GenerateTableYAML(table config.TableConfig, jwtEnabled bool) ([]byte, error
 	return out, nil
 }
 
-func buildDocument(table config.TableConfig, jwtEnabled bool) map[string]interface{} {
+func buildDocument(table config.TableConfig, jwtEnabled bool) orderedMap {
 	paths := buildPaths(table, jwtEnabled)
-	components := map[string]interface{}{
-		"schemas": buildSchemas(table),
+	components := orderedMap{
+		{Key: "schemas", Value: buildSchemas(table)},
 	}
 
-	doc := map[string]interface{}{
-		"openapi": "3.0.3",
-		"info": map[string]interface{}{
-			"title":       fmt.Sprintf("itemservicecentral - %s", table.Name),
-			"version":     "1.0.0",
-			"description": fmt.Sprintf("Dynamic OpenAPI document for table %q.", table.Name),
-		},
-		"paths":      paths,
-		"components": components,
+	doc := orderedMap{
+		{Key: "openapi", Value: "3.0.3"},
+		{Key: "info", Value: orderedMap{
+			{Key: "title", Value: fmt.Sprintf("itemservicecentral - %s", table.Name)},
+			{Key: "version", Value: "1.0.0"},
+			{Key: "description", Value: fmt.Sprintf("Dynamic OpenAPI document for table %q.", table.Name)},
+		}},
+		{Key: "paths", Value: paths},
+		{Key: "components", Value: components},
 	}
 
 	if jwtEnabled {
-		components["securitySchemes"] = map[string]interface{}{
-			"bearerAuth": map[string]interface{}{
-				"type":         "http",
-				"scheme":       "bearer",
-				"bearerFormat": "JWT",
+		components = append(components, orderedEntry{
+			Key: "securitySchemes",
+			Value: orderedMap{
+				{
+					Key: "bearerAuth",
+					Value: orderedMap{
+						{Key: "type", Value: "http"},
+						{Key: "scheme", Value: "bearer"},
+						{Key: "bearerFormat", Value: "JWT"},
+					},
+				},
 			},
-		}
-		doc["security"] = []interface{}{
-			map[string]interface{}{
-				"bearerAuth": []interface{}{},
+		})
+		doc[3].Value = components
+		doc = append(doc, orderedEntry{
+			Key: "security",
+			Value: []interface{}{
+				orderedMap{
+					{Key: "bearerAuth", Value: []interface{}{}},
+				},
 			},
-		}
+		})
 	}
 
 	return doc
 }
 
-func buildSchemas(table config.TableConfig) map[string]interface{} {
-	return map[string]interface{}{
-		"Item": copyValue(table.Schema),
-		"ListMeta": map[string]interface{}{
-			"type":                 "object",
-			"additionalProperties": false,
-			"properties": map[string]interface{}{
-				"nextPageToken": map[string]interface{}{"type": "string"},
-				"previousPageToken": map[string]interface{}{
-					"type": "string",
-				},
-			},
-		},
-		"ListResponse": map[string]interface{}{
-			"type":                 "object",
-			"additionalProperties": false,
-			"properties": map[string]interface{}{
-				"items": map[string]interface{}{
-					"type": "array",
-					"items": map[string]interface{}{
-						"$ref": "#/components/schemas/Item",
-					},
-				},
-				"_meta": map[string]interface{}{
-					"$ref": "#/components/schemas/ListMeta",
-				},
-			},
-			"required": []interface{}{"items"},
-		},
-		"ErrorResponse": map[string]interface{}{
-			"type":                 "object",
-			"additionalProperties": false,
-			"properties": map[string]interface{}{
-				"error": map[string]interface{}{
-					"type": "string",
-				},
-			},
-			"required": []interface{}{"error"},
-		},
-		"MergePatchDocument": map[string]interface{}{
-			"type":                 "object",
-			"additionalProperties": true,
-			"description":          "RFC 7396 JSON Merge Patch document.",
-		},
+func buildSchemas(table config.TableConfig) orderedMap {
+	return orderedMap{
+		{Key: "Item", Value: copyValue(table.Schema)},
+		{Key: "PatchItem", Value: buildPatchSchema(table)},
+		{Key: "ListMeta", Value: orderedMap{
+			{Key: "type", Value: "object"},
+			{Key: "additionalProperties", Value: false},
+			{Key: "properties", Value: orderedMap{
+				{Key: "nextPageToken", Value: orderedMap{{Key: "type", Value: "string"}}},
+				{Key: "previousPageToken", Value: orderedMap{{Key: "type", Value: "string"}}},
+			}},
+		}},
+		{Key: "ListResponse", Value: orderedMap{
+			{Key: "type", Value: "object"},
+			{Key: "additionalProperties", Value: false},
+			{Key: "properties", Value: orderedMap{
+				{Key: "items", Value: orderedMap{
+					{Key: "type", Value: "array"},
+					{Key: "items", Value: orderedMap{
+						{Key: "$ref", Value: "#/components/schemas/Item"},
+					}},
+				}},
+				{Key: "_meta", Value: orderedMap{
+					{Key: "$ref", Value: "#/components/schemas/ListMeta"},
+				}},
+			}},
+			{Key: "required", Value: []interface{}{"items", "_meta"}},
+		}},
+		{Key: "ErrorResponse", Value: orderedMap{
+			{Key: "type", Value: "object"},
+			{Key: "additionalProperties", Value: false},
+			{Key: "properties", Value: orderedMap{
+				{Key: "error", Value: orderedMap{{Key: "type", Value: "string"}}},
+			}},
+			{Key: "required", Value: []interface{}{"error"}},
+		}},
 	}
 }
 
-func buildPaths(table config.TableConfig, jwtEnabled bool) map[string]interface{} {
-	paths := map[string]interface{}{}
+func buildPatchSchema(table config.TableConfig) map[string]interface{} {
+	root, ok := copyValue(table.Schema).(map[string]interface{})
+	if !ok {
+		return map[string]interface{}{
+			"type":                 "object",
+			"additionalProperties": true,
+		}
+	}
+
+	props, ok := root["properties"].(map[string]interface{})
+	if !ok {
+		props = map[string]interface{}{}
+		root["properties"] = props
+	}
+
+	rkField := ""
+	if table.RangeKey != nil {
+		rkField = table.RangeKey.Field
+	}
+
+	for fieldName, rawProp := range props {
+		if fieldName == table.PrimaryKey.Field || (rkField != "" && fieldName == rkField) {
+			continue
+		}
+		propMap, ok := rawProp.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		propCopy, ok := copyValue(propMap).(map[string]interface{})
+		if !ok {
+			continue
+		}
+		propCopy["nullable"] = true
+		props[fieldName] = propCopy
+	}
+
+	required := []interface{}{table.PrimaryKey.Field}
+	if rkField != "" {
+		required = append(required, rkField)
+	}
+	root["required"] = required
+
+	return root
+}
+
+func buildPaths(table config.TableConfig, jwtEnabled bool) orderedMap {
+	paths := orderedMap{}
 	hasRK := table.RangeKey != nil
 
 	if hasRK {
-		path := fmt.Sprintf("/v1/%s/data/{pk}/{rk}/_item", table.Name)
-		paths[path] = map[string]interface{}{
-			"get":    getItemOperation(table, true, jwtEnabled),
-			"put":    putItemOperation(table, true, jwtEnabled),
-			"patch":  patchItemOperation(table, true, jwtEnabled),
-			"delete": deleteItemOperation(table, true, jwtEnabled),
-		}
+		path := fmt.Sprintf("/v1/%s/data/{%s}/{%s}/_item", table.Name, table.PrimaryKey.Field, table.RangeKey.Field)
+		paths = append(paths, orderedEntry{
+			Key: path,
+			Value: orderedMap{
+				{Key: "put", Value: putItemOperation(table, true, jwtEnabled)},
+				{Key: "get", Value: getItemOperation(table, true, jwtEnabled)},
+				{Key: "patch", Value: patchItemOperation(table, true, jwtEnabled)},
+				{Key: "delete", Value: deleteItemOperation(table, true, jwtEnabled)},
+			},
+		})
 	} else {
-		path := fmt.Sprintf("/v1/%s/data/{pk}/_item", table.Name)
-		paths[path] = map[string]interface{}{
-			"get":    getItemOperation(table, false, jwtEnabled),
-			"put":    putItemOperation(table, false, jwtEnabled),
-			"patch":  patchItemOperation(table, false, jwtEnabled),
-			"delete": deleteItemOperation(table, false, jwtEnabled),
-		}
+		path := fmt.Sprintf("/v1/%s/data/{%s}/_item", table.Name, table.PrimaryKey.Field)
+		paths = append(paths, orderedEntry{
+			Key: path,
+			Value: orderedMap{
+				{Key: "put", Value: putItemOperation(table, false, jwtEnabled)},
+				{Key: "get", Value: getItemOperation(table, false, jwtEnabled)},
+				{Key: "patch", Value: patchItemOperation(table, false, jwtEnabled)},
+				{Key: "delete", Value: deleteItemOperation(table, false, jwtEnabled)},
+			},
+		})
 	}
 
-	partitionPath := fmt.Sprintf("/v1/%s/data/{pk}/_items", table.Name)
-	paths[partitionPath] = map[string]interface{}{
-		"get": listByPKOperation(table, hasRK, jwtEnabled),
-	}
+	partitionPath := fmt.Sprintf("/v1/%s/data/{%s}/_items", table.Name, table.PrimaryKey.Field)
+	paths = append(paths, orderedEntry{
+		Key: partitionPath,
+		Value: orderedMap{
+			{Key: "get", Value: listByPKOperation(table, hasRK, jwtEnabled)},
+		},
+	})
 
 	if table.AllowTableScan {
 		tableScanPath := fmt.Sprintf("/v1/%s/_items", table.Name)
-		paths[tableScanPath] = map[string]interface{}{
-			"get": scanTableOperation(table, hasRK, jwtEnabled),
-		}
+		paths = append(paths, orderedEntry{
+			Key: tableScanPath,
+			Value: orderedMap{
+				{Key: "get", Value: scanTableOperation(table, hasRK, jwtEnabled)},
+			},
+		})
 	}
 
 	for _, idx := range table.Indexes {
-		indexQueryPath := fmt.Sprintf("/v1/%s/_index/%s/{indexPk}/_items", table.Name, idx.Name)
-		paths[indexQueryPath] = map[string]interface{}{
-			"get": queryIndexOperation(table, idx, jwtEnabled),
-		}
+		indexQueryPath := fmt.Sprintf("/v1/%s/_index/%s/{%s}/_items", table.Name, idx.Name, idx.PrimaryKey.Field)
+		paths = append(paths, orderedEntry{
+			Key: indexQueryPath,
+			Value: orderedMap{
+				{Key: "get", Value: queryIndexOperation(table, idx, jwtEnabled)},
+			},
+		})
 
 		if idx.AllowIndexScan {
 			indexScanPath := fmt.Sprintf("/v1/%s/_index/%s/_items", table.Name, idx.Name)
-			paths[indexScanPath] = map[string]interface{}{
-				"get": scanIndexOperation(table, idx, jwtEnabled),
-			}
+			paths = append(paths, orderedEntry{
+				Key: indexScanPath,
+				Value: orderedMap{
+					{Key: "get", Value: scanIndexOperation(table, idx, jwtEnabled)},
+				},
+			})
 		}
 
 		if idx.RangeKey != nil {
-			indexGetItemPath := fmt.Sprintf("/v1/%s/_index/%s/{indexPk}/{indexRk}/_item", table.Name, idx.Name)
-			paths[indexGetItemPath] = map[string]interface{}{
-				"get": getIndexItemOperation(table, idx, jwtEnabled),
-			}
+			indexGetItemPath := fmt.Sprintf("/v1/%s/_index/%s/{%s}/{%s}/_item", table.Name, idx.Name, idx.PrimaryKey.Field, idx.RangeKey.Field)
+			paths = append(paths, orderedEntry{
+				Key: indexGetItemPath,
+				Value: orderedMap{
+					{Key: "get", Value: getIndexItemOperation(table, idx, jwtEnabled)},
+				},
+			})
 		}
 	}
 
@@ -223,10 +318,10 @@ func buildPaths(table config.TableConfig, jwtEnabled bool) map[string]interface{
 
 func getItemOperation(table config.TableConfig, hasRK bool, jwtEnabled bool) map[string]interface{} {
 	params := []interface{}{
-		pathParam("pk", "Primary key value.", table.PrimaryKey.Pattern),
+		pathParam(table.PrimaryKey.Field, "Primary key value.", table.PrimaryKey.Pattern),
 	}
 	if hasRK {
-		params = append(params, pathParam("rk", "Range key value.", table.RangeKey.Pattern))
+		params = append(params, pathParam(table.RangeKey.Field, "Range key value.", table.RangeKey.Pattern))
 	}
 	params = append(params, fieldsQueryParam())
 
@@ -240,10 +335,10 @@ func getItemOperation(table config.TableConfig, hasRK bool, jwtEnabled bool) map
 
 func putItemOperation(table config.TableConfig, hasRK bool, jwtEnabled bool) map[string]interface{} {
 	params := []interface{}{
-		pathParam("pk", "Primary key value.", table.PrimaryKey.Pattern),
+		pathParam(table.PrimaryKey.Field, "Primary key value.", table.PrimaryKey.Pattern),
 	}
 	if hasRK {
-		params = append(params, pathParam("rk", "Range key value.", table.RangeKey.Pattern))
+		params = append(params, pathParam(table.RangeKey.Field, "Range key value.", table.RangeKey.Pattern))
 	}
 
 	return map[string]interface{}{
@@ -266,28 +361,28 @@ func putItemOperation(table config.TableConfig, hasRK bool, jwtEnabled bool) map
 
 func patchItemOperation(table config.TableConfig, hasRK bool, jwtEnabled bool) map[string]interface{} {
 	params := []interface{}{
-		pathParam("pk", "Primary key value.", table.PrimaryKey.Pattern),
+		pathParam(table.PrimaryKey.Field, "Primary key value.", table.PrimaryKey.Pattern),
 	}
 	if hasRK {
-		params = append(params, pathParam("rk", "Range key value.", table.RangeKey.Pattern))
+		params = append(params, pathParam(table.RangeKey.Field, "Range key value.", table.RangeKey.Pattern))
 	}
 
 	return map[string]interface{}{
 		"operationId": operationID(table.Name, "patch", "item"),
 		"summary":     "Patch item",
-		"description": "Applies RFC 7396 JSON Merge Patch and validates the merged result.",
+		"description": "Applies RFC 7396 JSON Merge Patch. primaryKey/rangeKey fields are required in the payload and must match the URL.",
 		"parameters":  params,
 		"requestBody": map[string]interface{}{
 			"required": true,
 			"content": map[string]interface{}{
 				"application/merge-patch+json": map[string]interface{}{
 					"schema": map[string]interface{}{
-						"$ref": "#/components/schemas/MergePatchDocument",
+						"$ref": "#/components/schemas/PatchItem",
 					},
 				},
 				"application/json": map[string]interface{}{
 					"schema": map[string]interface{}{
-						"$ref": "#/components/schemas/MergePatchDocument",
+						"$ref": "#/components/schemas/PatchItem",
 					},
 				},
 			},
@@ -298,10 +393,10 @@ func patchItemOperation(table config.TableConfig, hasRK bool, jwtEnabled bool) m
 
 func deleteItemOperation(table config.TableConfig, hasRK bool, jwtEnabled bool) map[string]interface{} {
 	params := []interface{}{
-		pathParam("pk", "Primary key value.", table.PrimaryKey.Pattern),
+		pathParam(table.PrimaryKey.Field, "Primary key value.", table.PrimaryKey.Pattern),
 	}
 	if hasRK {
-		params = append(params, pathParam("rk", "Range key value.", table.RangeKey.Pattern))
+		params = append(params, pathParam(table.RangeKey.Field, "Range key value.", table.RangeKey.Pattern))
 	}
 
 	return map[string]interface{}{
@@ -314,7 +409,7 @@ func deleteItemOperation(table config.TableConfig, hasRK bool, jwtEnabled bool) 
 
 func listByPKOperation(table config.TableConfig, hasRK bool, jwtEnabled bool) map[string]interface{} {
 	params := []interface{}{
-		pathParam("pk", "Primary key value.", table.PrimaryKey.Pattern),
+		pathParam(table.PrimaryKey.Field, "Primary key value.", table.PrimaryKey.Pattern),
 	}
 	params = append(params, listQueryParams(hasRK)...)
 
@@ -337,7 +432,7 @@ func scanTableOperation(table config.TableConfig, hasRK bool, jwtEnabled bool) m
 
 func queryIndexOperation(table config.TableConfig, idx config.IndexConfig, jwtEnabled bool) map[string]interface{} {
 	params := []interface{}{
-		pathParam("indexPk", fmt.Sprintf("Index %q primary key value.", idx.Name), idx.PrimaryKey.Pattern),
+		pathParam(idx.PrimaryKey.Field, fmt.Sprintf("Index %q primary key value.", idx.Name), idx.PrimaryKey.Pattern),
 	}
 	params = append(params, listQueryParams(idx.RangeKey != nil)...)
 
@@ -360,8 +455,8 @@ func scanIndexOperation(table config.TableConfig, idx config.IndexConfig, jwtEna
 
 func getIndexItemOperation(table config.TableConfig, idx config.IndexConfig, jwtEnabled bool) map[string]interface{} {
 	params := []interface{}{
-		pathParam("indexPk", fmt.Sprintf("Index %q primary key value.", idx.Name), idx.PrimaryKey.Pattern),
-		pathParam("indexRk", fmt.Sprintf("Index %q range key value.", idx.Name), idx.RangeKey.Pattern),
+		pathParam(idx.PrimaryKey.Field, fmt.Sprintf("Index %q primary key value.", idx.Name), idx.PrimaryKey.Pattern),
+		pathParam(idx.RangeKey.Field, fmt.Sprintf("Index %q range key value.", idx.Name), idx.RangeKey.Pattern),
 		fieldsQueryParam(),
 	}
 
@@ -393,7 +488,8 @@ func putItemResponses(jwtEnabled bool) map[string]interface{} {
 func patchItemResponses(jwtEnabled bool) map[string]interface{} {
 	return withAuthError(jwtEnabled, map[string]interface{}{
 		"200": jsonResponse("Item patched.", map[string]interface{}{"$ref": "#/components/schemas/Item"}),
-		"400": jsonErrorResponse("Invalid patch or validation failure."),
+		"400": jsonErrorResponse("Invalid patch, key mismatch, or validation failure."),
+		"409": jsonErrorResponse("Item was modified by another request."),
 		"404": jsonErrorResponse("Item not found."),
 		"500": jsonErrorResponse("Internal server error."),
 	})

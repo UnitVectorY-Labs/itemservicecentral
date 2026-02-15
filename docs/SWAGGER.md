@@ -52,12 +52,19 @@ Generated OpenAPI includes table-specific routes based on table and index config
 
 Request/response schemas include the configured table JSON Schema and the list/error envelope structures.
 
+Path parameters in generated OpenAPI use configured key field names, not shorthand placeholders.  
+Example: `/v1/users/data/{userId}/_item` (not `{pk}`).
+
+Operations are emitted in a stable logical order: item CRUD first, then partition/table list routes, then index routes.
+
 Query parameters are emitted per endpoint, including:
 
 - `fields`
 - `limit`
 - `pageToken`
 - range-key filters when applicable (`rkBeginsWith`, `rkGt`, `rkGte`, `rkLt`, `rkLte`)
+
+PATCH payload schema is generated from the table schema with table key fields required and other top-level fields optional (nullable) for merge-patch behavior.
 
 ## CLI Generation
 
