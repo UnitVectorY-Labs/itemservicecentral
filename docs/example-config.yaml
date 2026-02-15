@@ -14,6 +14,10 @@ server:
     # issuer: "https://auth.example.com"
     # audience: "my-api"
 
+  swagger:
+    # Set to true to expose unauthenticated per-table Swagger UI and OpenAPI YAML.
+    enabled: true
+
 tables:
   # --------------------------------------------------------------------------
   # Primary Key-only table: "users"

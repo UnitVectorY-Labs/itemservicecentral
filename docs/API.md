@@ -8,6 +8,15 @@ Error response format:
 {"error": "error message"}
 ```
 
+## Swagger / OpenAPI Endpoints (Optional)
+
+When Swagger support is enabled, each table exposes:
+
+- `GET /v1/{table}/_swagger` (embedded Swagger UI HTML)
+- `GET /v1/{table}/_openapi` (generated OpenAPI YAML)
+
+These endpoints are public (no JWT required), even when JWT is enabled for API operations.
+
 ## Item Endpoints
 
 ### GET - Retrieve an item

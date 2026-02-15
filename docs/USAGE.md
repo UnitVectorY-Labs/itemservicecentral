@@ -1,8 +1,8 @@
 # CLI Usage and Configuration
 
-itemservicecentral provides four subcommands: `api`, `validate`, `migrate`, and `version`.
+itemservicecentral provides five subcommands: `api`, `validate`, `migrate`, `swagger`, and `version`.
 
-Every flag has a corresponding environment variable prefixed with `ISC_`. When both are set, the CLI flag takes precedence.
+Most runtime flags have a corresponding environment variable prefixed with `ISC_`. When both are set, the CLI flag takes precedence.
 
 ## Commands
 
@@ -26,6 +26,7 @@ Flags:
 | `-db-user` | `ISC_DB_USER` | (required) | Database username |
 | `-db-password` | `ISC_DB_PASSWORD` | (required) | Database password |
 | `-db-sslmode` | `ISC_DB_SSLMODE` | `disable` | SSL mode |
+| `-swagger-enabled` | `ISC_SWAGGER_ENABLED` | `false` | Enable unauthenticated Swagger UI (`/_swagger`) and OpenAPI YAML (`/_openapi`) endpoints |
 
 ### `validate`
 
@@ -70,6 +71,22 @@ Prints the application version and exits.
 ```bash
 go run . version
 ```
+
+### `swagger`
+
+Generates OpenAPI YAML for a single table without starting the API server or connecting to PostgreSQL.
+
+```bash
+go run . swagger -config config.yaml -table users
+```
+
+Flags:
+
+| Flag | Environment Variable | Default | Description |
+|------|---------------------|---------|-------------|
+| `-config` | `ISC_CONFIG` | `config.yaml` | Path to YAML config file |
+| `-table` | — | (required) | Table name to generate OpenAPI for |
+| `-output` | — | stdout | Write YAML to a file path instead of stdout |
 
 ## Database Connection Parameters
 

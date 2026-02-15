@@ -63,6 +63,30 @@ func TestLoad_ValidFile(t *testing.T) {
 	}
 }
 
+func TestLoad_SwaggerEnabled(t *testing.T) {
+	yaml := `
+server:
+  swagger:
+    enabled: true
+tables:
+  - name: users
+    primaryKey:
+      field: userId
+      pattern: "^[a-z0-9]+$"
+    schema:
+      type: object
+      additionalProperties: false
+`
+	path := writeTempConfig(t, yaml)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !cfg.Server.Swagger.Enabled {
+		t.Fatal("expected swagger to be enabled")
+	}
+}
+
 func TestLoad_FileNotFound(t *testing.T) {
 	_, err := Load("/nonexistent/path/config.yaml")
 	if err == nil {

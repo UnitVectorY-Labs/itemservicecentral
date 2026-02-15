@@ -23,3 +23,4 @@ itemservicecentral helps teams ship data APIs faster by turning a small YAML con
 - [Database](./DATABASE.md)
 - [Usage](./USAGE.md)
 - [API Reference](./API.md)
+- [Swagger / OpenAPI](./SWAGGER.md)

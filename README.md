@@ -30,5 +30,6 @@ go run . api -config config.yaml -db-host localhost -db-port 5432 -db-name mydb 
 - [Configuration](docs/CONFIG.md)
 - [Database](docs/DATABASE.md)
 - [API Reference](docs/API.md)
+- [Swagger / OpenAPI](docs/SWAGGER.md)
 - [Examples](docs/EXAMPLE.md)
 - [Example Config](docs/example-config.yaml)

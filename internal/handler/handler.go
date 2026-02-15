@@ -7,12 +7,14 @@ import (
 	"github.com/UnitVectorY-Labs/itemservicecentral/internal/config"
 	"github.com/UnitVectorY-Labs/itemservicecentral/internal/database"
 	"github.com/UnitVectorY-Labs/itemservicecentral/internal/schema"
+	swaggerdoc "github.com/UnitVectorY-Labs/itemservicecentral/internal/swagger"
 )
 
 // Handler is the top-level HTTP handler that dispatches to per-table handlers.
 type Handler struct {
-	store  *database.Store
-	tables map[string]*tableHandler
+	store      *database.Store
+	tables     map[string]*tableHandler
+	openAPIDoc *swaggerdoc.Provider
 }
 
 // tableHandler holds the configuration and compiled schema for a single table.
@@ -22,8 +24,19 @@ type tableHandler struct {
 	indexes   map[string]config.IndexConfig
 }
 
+// Options controls optional HTTP handler features.
+type Options struct {
+	SwaggerEnabled bool
+	JWTEnabled     bool
+}
+
 // New creates a Handler by compiling schemas and building index lookup maps.
 func New(store *database.Store, tables []config.TableConfig) (*Handler, error) {
+	return NewWithOptions(store, tables, Options{})
+}
+
+// NewWithOptions creates a Handler with optional features enabled.
+func NewWithOptions(store *database.Store, tables []config.TableConfig, options Options) (*Handler, error) {
 	h := &Handler{
 		store:  store,
 		tables: make(map[string]*tableHandler, len(tables)),
@@ -47,6 +60,10 @@ func New(store *database.Store, tables []config.TableConfig) (*Handler, error) {
 		}
 	}
 
+	if options.SwaggerEnabled {
+		h.openAPIDoc = swaggerdoc.NewProvider(tables, options.JWTEnabled)
+	}
+
 	return h, nil
 }
 
@@ -58,6 +75,11 @@ func (h *Handler) SetupRoutes(mux *http.ServeMux) {
 }
 
 func (h *Handler) registerTableRoutes(mux *http.ServeMux, name string, th *tableHandler) {
+	if h.openAPIDoc != nil {
+		mux.HandleFunc("GET /v1/"+name+"/_swagger", h.handleSwaggerUI())
+		mux.HandleFunc("GET /v1/"+name+"/_openapi", h.handleOpenAPI(name))
+	}
+
 	hasRK := th.config.RangeKey != nil
 
 	if hasRK {

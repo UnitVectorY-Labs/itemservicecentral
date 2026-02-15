@@ -20,8 +20,9 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Port int       `yaml:"port"`
-	JWT  JWTConfig `yaml:"jwt"`
+	Port    int           `yaml:"port"`
+	JWT     JWTConfig     `yaml:"jwt"`
+	Swagger SwaggerConfig `yaml:"swagger"`
 }
 
 type JWTConfig struct {
@@ -29,6 +30,10 @@ type JWTConfig struct {
 	JWKSUrl  string `yaml:"jwksUrl"`
 	Issuer   string `yaml:"issuer"`
 	Audience string `yaml:"audience"`
+}
+
+type SwaggerConfig struct {
+	Enabled bool `yaml:"enabled"`
 }
 
 type TableConfig struct {
