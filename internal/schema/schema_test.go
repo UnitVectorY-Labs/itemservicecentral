@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -145,5 +146,37 @@ func TestCompileRejectsRefKeyword(t *testing.T) {
 	_, err := Compile(invalidSchema)
 	if err == nil {
 		t.Fatal("expected error for unsupported $ref keyword, got nil")
+	}
+}
+
+func TestValidateErrorDoesNotLeakSchemaPath(t *testing.T) {
+	v, err := Compile(map[string]interface{}{
+		"type":                 "object",
+		"additionalProperties": false,
+		"properties": map[string]interface{}{
+			"status": map[string]interface{}{
+				"type": "string",
+				"enum": []interface{}{"active", "inactive"},
+			},
+		},
+		"required": []interface{}{"status"},
+	})
+	if err != nil {
+		t.Fatalf("failed to compile schema: %v", err)
+	}
+
+	err = v.Validate(map[string]interface{}{
+		"status": "invalid",
+	})
+	if err == nil {
+		t.Fatal("expected validation error, got nil")
+	}
+
+	msg := err.Error()
+	if strings.Contains(msg, "file:///") {
+		t.Fatalf("validation error leaked file URI: %s", msg)
+	}
+	if !strings.Contains(msg, "at '/status'") {
+		t.Fatalf("expected instance location in error message, got: %s", msg)
 	}
 }

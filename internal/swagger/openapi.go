@@ -9,6 +9,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	keyValuePathPattern = `^[A-Za-z_][A-Za-z0-9._-]*$`
+	itemTypeName        = "item"
+	itemsTypeName       = "items"
+	errorTypeName       = "error"
+)
+
 type orderedEntry struct {
 	Key   string
 	Value interface{}
@@ -156,6 +163,7 @@ func buildDocument(table config.TableConfig, jwtEnabled bool) orderedMap {
 func buildSchemas(table config.TableConfig) orderedMap {
 	return orderedMap{
 		{Key: "Item", Value: copyValue(table.Schema)},
+		{Key: "ItemResponse", Value: buildItemResponseSchema(table)},
 		{Key: "PatchItem", Value: buildPatchSchema(table)},
 		{Key: "ListMeta", Value: orderedMap{
 			{Key: "type", Value: "object"},
@@ -169,27 +177,67 @@ func buildSchemas(table config.TableConfig) orderedMap {
 			{Key: "type", Value: "object"},
 			{Key: "additionalProperties", Value: false},
 			{Key: "properties", Value: orderedMap{
+				{Key: "_type", Value: orderedMap{
+					{Key: "type", Value: "string"},
+					{Key: "enum", Value: []interface{}{itemsTypeName}},
+				}},
 				{Key: "items", Value: orderedMap{
 					{Key: "type", Value: "array"},
 					{Key: "items", Value: orderedMap{
-						{Key: "$ref", Value: "#/components/schemas/Item"},
+						{Key: "$ref", Value: "#/components/schemas/ItemResponse"},
 					}},
 				}},
 				{Key: "_meta", Value: orderedMap{
 					{Key: "$ref", Value: "#/components/schemas/ListMeta"},
 				}},
 			}},
-			{Key: "required", Value: []interface{}{"items", "_meta"}},
+			{Key: "required", Value: []interface{}{"_type", "items", "_meta"}},
 		}},
 		{Key: "ErrorResponse", Value: orderedMap{
 			{Key: "type", Value: "object"},
 			{Key: "additionalProperties", Value: false},
 			{Key: "properties", Value: orderedMap{
+				{Key: "_type", Value: orderedMap{
+					{Key: "type", Value: "string"},
+					{Key: "enum", Value: []interface{}{errorTypeName}},
+				}},
 				{Key: "error", Value: orderedMap{{Key: "type", Value: "string"}}},
 			}},
-			{Key: "required", Value: []interface{}{"error"}},
+			{Key: "required", Value: []interface{}{"_type", "error"}},
 		}},
 	}
+}
+
+func buildItemResponseSchema(table config.TableConfig) map[string]interface{} {
+	root, ok := copyValue(table.Schema).(map[string]interface{})
+	if !ok {
+		return map[string]interface{}{
+			"type":                 "object",
+			"additionalProperties": false,
+			"properties": map[string]interface{}{
+				"_type": map[string]interface{}{
+					"type": "string",
+					"enum": []interface{}{itemTypeName},
+				},
+			},
+			"required": []interface{}{"_type"},
+		}
+	}
+
+	if _, ok := root["type"]; !ok {
+		root["type"] = "object"
+	}
+	props, ok := root["properties"].(map[string]interface{})
+	if !ok {
+		props = map[string]interface{}{}
+		root["properties"] = props
+	}
+	props["_type"] = map[string]interface{}{
+		"type": "string",
+		"enum": []interface{}{itemTypeName},
+	}
+	root["required"] = appendRequiredField(root["required"], "_type")
+	return root
 }
 
 func buildPatchSchema(table config.TableConfig) map[string]interface{} {
@@ -318,10 +366,10 @@ func buildPaths(table config.TableConfig, jwtEnabled bool) orderedMap {
 
 func getItemOperation(table config.TableConfig, hasRK bool, jwtEnabled bool) map[string]interface{} {
 	params := []interface{}{
-		pathParam(table.PrimaryKey.Field, "Primary key value.", table.PrimaryKey.Pattern),
+		keyPathParam(table, table.PrimaryKey.Field, "Primary key value.", table.PrimaryKey.Pattern),
 	}
 	if hasRK {
-		params = append(params, pathParam(table.RangeKey.Field, "Range key value.", table.RangeKey.Pattern))
+		params = append(params, keyPathParam(table, table.RangeKey.Field, "Range key value.", table.RangeKey.Pattern))
 	}
 	params = append(params, fieldsQueryParam())
 
@@ -335,10 +383,10 @@ func getItemOperation(table config.TableConfig, hasRK bool, jwtEnabled bool) map
 
 func putItemOperation(table config.TableConfig, hasRK bool, jwtEnabled bool) map[string]interface{} {
 	params := []interface{}{
-		pathParam(table.PrimaryKey.Field, "Primary key value.", table.PrimaryKey.Pattern),
+		keyPathParam(table, table.PrimaryKey.Field, "Primary key value.", table.PrimaryKey.Pattern),
 	}
 	if hasRK {
-		params = append(params, pathParam(table.RangeKey.Field, "Range key value.", table.RangeKey.Pattern))
+		params = append(params, keyPathParam(table, table.RangeKey.Field, "Range key value.", table.RangeKey.Pattern))
 	}
 
 	return map[string]interface{}{
@@ -361,10 +409,10 @@ func putItemOperation(table config.TableConfig, hasRK bool, jwtEnabled bool) map
 
 func patchItemOperation(table config.TableConfig, hasRK bool, jwtEnabled bool) map[string]interface{} {
 	params := []interface{}{
-		pathParam(table.PrimaryKey.Field, "Primary key value.", table.PrimaryKey.Pattern),
+		keyPathParam(table, table.PrimaryKey.Field, "Primary key value.", table.PrimaryKey.Pattern),
 	}
 	if hasRK {
-		params = append(params, pathParam(table.RangeKey.Field, "Range key value.", table.RangeKey.Pattern))
+		params = append(params, keyPathParam(table, table.RangeKey.Field, "Range key value.", table.RangeKey.Pattern))
 	}
 
 	return map[string]interface{}{
@@ -393,10 +441,10 @@ func patchItemOperation(table config.TableConfig, hasRK bool, jwtEnabled bool) m
 
 func deleteItemOperation(table config.TableConfig, hasRK bool, jwtEnabled bool) map[string]interface{} {
 	params := []interface{}{
-		pathParam(table.PrimaryKey.Field, "Primary key value.", table.PrimaryKey.Pattern),
+		keyPathParam(table, table.PrimaryKey.Field, "Primary key value.", table.PrimaryKey.Pattern),
 	}
 	if hasRK {
-		params = append(params, pathParam(table.RangeKey.Field, "Range key value.", table.RangeKey.Pattern))
+		params = append(params, keyPathParam(table, table.RangeKey.Field, "Range key value.", table.RangeKey.Pattern))
 	}
 
 	return map[string]interface{}{
@@ -409,7 +457,7 @@ func deleteItemOperation(table config.TableConfig, hasRK bool, jwtEnabled bool) 
 
 func listByPKOperation(table config.TableConfig, hasRK bool, jwtEnabled bool) map[string]interface{} {
 	params := []interface{}{
-		pathParam(table.PrimaryKey.Field, "Primary key value.", table.PrimaryKey.Pattern),
+		keyPathParam(table, table.PrimaryKey.Field, "Primary key value.", table.PrimaryKey.Pattern),
 	}
 	params = append(params, listQueryParams(hasRK)...)
 
@@ -432,7 +480,7 @@ func scanTableOperation(table config.TableConfig, hasRK bool, jwtEnabled bool) m
 
 func queryIndexOperation(table config.TableConfig, idx config.IndexConfig, jwtEnabled bool) map[string]interface{} {
 	params := []interface{}{
-		pathParam(idx.PrimaryKey.Field, fmt.Sprintf("Index %q primary key value.", idx.Name), idx.PrimaryKey.Pattern),
+		keyPathParam(table, idx.PrimaryKey.Field, fmt.Sprintf("Index %q primary key value.", idx.Name), idx.PrimaryKey.Pattern),
 	}
 	params = append(params, listQueryParams(idx.RangeKey != nil)...)
 
@@ -455,8 +503,8 @@ func scanIndexOperation(table config.TableConfig, idx config.IndexConfig, jwtEna
 
 func getIndexItemOperation(table config.TableConfig, idx config.IndexConfig, jwtEnabled bool) map[string]interface{} {
 	params := []interface{}{
-		pathParam(idx.PrimaryKey.Field, fmt.Sprintf("Index %q primary key value.", idx.Name), idx.PrimaryKey.Pattern),
-		pathParam(idx.RangeKey.Field, fmt.Sprintf("Index %q range key value.", idx.Name), idx.RangeKey.Pattern),
+		keyPathParam(table, idx.PrimaryKey.Field, fmt.Sprintf("Index %q primary key value.", idx.Name), idx.PrimaryKey.Pattern),
+		keyPathParam(table, idx.RangeKey.Field, fmt.Sprintf("Index %q range key value.", idx.Name), idx.RangeKey.Pattern),
 		fieldsQueryParam(),
 	}
 
@@ -470,7 +518,7 @@ func getIndexItemOperation(table config.TableConfig, idx config.IndexConfig, jwt
 
 func getItemResponses(jwtEnabled bool) map[string]interface{} {
 	return withAuthError(jwtEnabled, map[string]interface{}{
-		"200": jsonResponse("Item found.", map[string]interface{}{"$ref": "#/components/schemas/Item"}),
+		"200": jsonResponse("Item found.", map[string]interface{}{"$ref": "#/components/schemas/ItemResponse"}),
 		"400": jsonErrorResponse("Invalid request."),
 		"404": jsonErrorResponse("Item not found."),
 		"500": jsonErrorResponse("Internal server error."),
@@ -479,7 +527,7 @@ func getItemResponses(jwtEnabled bool) map[string]interface{} {
 
 func putItemResponses(jwtEnabled bool) map[string]interface{} {
 	return withAuthError(jwtEnabled, map[string]interface{}{
-		"200": jsonResponse("Item stored.", map[string]interface{}{"$ref": "#/components/schemas/Item"}),
+		"200": jsonResponse("Item stored.", map[string]interface{}{"$ref": "#/components/schemas/ItemResponse"}),
 		"400": jsonErrorResponse("Invalid request body or key mismatch."),
 		"500": jsonErrorResponse("Internal server error."),
 	})
@@ -487,7 +535,7 @@ func putItemResponses(jwtEnabled bool) map[string]interface{} {
 
 func patchItemResponses(jwtEnabled bool) map[string]interface{} {
 	return withAuthError(jwtEnabled, map[string]interface{}{
-		"200": jsonResponse("Item patched.", map[string]interface{}{"$ref": "#/components/schemas/Item"}),
+		"200": jsonResponse("Item patched.", map[string]interface{}{"$ref": "#/components/schemas/ItemResponse"}),
 		"400": jsonErrorResponse("Invalid patch, key mismatch, or validation failure."),
 		"409": jsonErrorResponse("Item was modified by another request."),
 		"404": jsonErrorResponse("Item not found."),
@@ -572,13 +620,80 @@ func fieldsQueryParam() map[string]interface{} {
 	})
 }
 
-func pathParam(name, description, pattern string) map[string]interface{} {
+func keyPathParam(table config.TableConfig, field, description, configuredPattern string) map[string]interface{} {
+	return pathParamWithSchema(field, description, keyPathSchema(table, field, configuredPattern))
+}
+
+func keyPathSchema(table config.TableConfig, field, configuredPattern string) map[string]interface{} {
 	schema := map[string]interface{}{
 		"type": "string",
 	}
-	if pattern != "" {
-		schema["pattern"] = pattern
+
+	if enum := schemaStringEnumConstraint(table, field); len(enum) > 0 {
+		schema["enum"] = enum
+		return schema
 	}
+
+	pattern := configuredPattern
+	if pattern == "" {
+		pattern = schemaStringPatternConstraint(table, field)
+	}
+	if pattern == "" {
+		pattern = keyValuePathPattern
+	}
+	schema["pattern"] = pattern
+
+	return schema
+}
+
+func schemaStringEnumConstraint(table config.TableConfig, field string) []interface{} {
+	prop := schemaField(table, field)
+	if prop == nil {
+		return nil
+	}
+
+	rawEnum, ok := prop["enum"].([]interface{})
+	if !ok || len(rawEnum) == 0 {
+		return nil
+	}
+
+	enum := make([]interface{}, 0, len(rawEnum))
+	for _, v := range rawEnum {
+		s, ok := v.(string)
+		if !ok {
+			return nil
+		}
+		enum = append(enum, s)
+	}
+	return enum
+}
+
+func schemaStringPatternConstraint(table config.TableConfig, field string) string {
+	prop := schemaField(table, field)
+	if prop == nil {
+		return ""
+	}
+	pattern, _ := prop["pattern"].(string)
+	return pattern
+}
+
+func schemaField(table config.TableConfig, field string) map[string]interface{} {
+	root, ok := table.Schema.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	props, ok := root["properties"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	prop, ok := props[field].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	return prop
+}
+
+func pathParamWithSchema(name, description string, schema map[string]interface{}) map[string]interface{} {
 	return map[string]interface{}{
 		"name":        name,
 		"in":          "path",
@@ -586,6 +701,29 @@ func pathParam(name, description, pattern string) map[string]interface{} {
 		"description": description,
 		"schema":      schema,
 	}
+}
+
+func appendRequiredField(requiredRaw interface{}, field string) []interface{} {
+	var required []interface{}
+
+	switch v := requiredRaw.(type) {
+	case []interface{}:
+		required = append(required, v...)
+	case []string:
+		required = make([]interface{}, 0, len(v)+1)
+		for _, s := range v {
+			required = append(required, s)
+		}
+	default:
+		required = []interface{}{}
+	}
+
+	for _, existing := range required {
+		if name, ok := existing.(string); ok && name == field {
+			return required
+		}
+	}
+	return append(required, field)
 }
 
 func queryParam(name, description string, schema map[string]interface{}) map[string]interface{} {

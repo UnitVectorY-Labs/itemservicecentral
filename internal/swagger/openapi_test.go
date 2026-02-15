@@ -53,6 +53,23 @@ func TestGenerateTableYAML_PKOnly(t *testing.T) {
 	requireParam(t, paramNames, "pageToken")
 	requireParam(t, paramNames, "fields")
 	forbiddenParam(t, paramNames, "rkBeginsWith")
+
+	indexQueryOp := getOperation(t, paths, "/v1/items/_index/by_status/{status}/_items", "get")
+	statusParam := parameterByName(t, indexQueryOp, "status")
+	statusSchema := asMap(t, statusParam["schema"])
+	if got, _ := statusSchema["pattern"].(string); got != keyValuePathPattern {
+		t.Fatalf("expected status path param pattern %q, got %q", keyValuePathPattern, got)
+	}
+
+	getItemOp := getOperation(t, paths, "/v1/items/data/{itemId}/_item", "get")
+	getResponses := asMap(t, getItemOp["responses"])
+	okResponse := asMap(t, getResponses["200"])
+	content := asMap(t, okResponse["content"])
+	appJSON := asMap(t, content["application/json"])
+	schemaRef := asMap(t, appJSON["schema"])
+	if schemaRef["$ref"] != "#/components/schemas/ItemResponse" {
+		t.Fatalf("expected 200 schema ref to ItemResponse, got %#v", schemaRef["$ref"])
+	}
 }
 
 func TestGenerateTableYAML_CompositeAndIndexRangeKey(t *testing.T) {
@@ -111,6 +128,13 @@ func TestGenerateTableYAML_CompositeAndIndexRangeKey(t *testing.T) {
 	indexParams := parameterNames(t, indexQueryOp)
 	requireParam(t, indexParams, "status")
 	requireParam(t, indexParams, "rkBeginsWith")
+
+	indexGetOp := getOperation(t, paths, "/v1/orders/_index/by_status/{status}/{sortKey}/_item", "get")
+	sortKeyParam := parameterByName(t, indexGetOp, "sortKey")
+	sortKeySchema := asMap(t, sortKeyParam["schema"])
+	if got, _ := sortKeySchema["pattern"].(string); got != keyValuePathPattern {
+		t.Fatalf("expected sortKey path param pattern %q, got %q", keyValuePathPattern, got)
+	}
 }
 
 func TestGenerateTableYAML_PatchSchemaRequiresKeys(t *testing.T) {
@@ -185,8 +209,77 @@ func TestGenerateTableYAML_WithJWTSecurity(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected ListResponse.required")
 	}
-	if len(required) != 2 || required[0] != "items" || required[1] != "_meta" {
-		t.Fatalf("expected ListResponse required fields [items _meta], got %#v", required)
+	if len(required) != 3 || required[0] != "_type" || required[1] != "items" || required[2] != "_meta" {
+		t.Fatalf("expected ListResponse required fields [_type items _meta], got %#v", required)
+	}
+
+	itemResponse := asMap(t, schemas["ItemResponse"])
+	itemProps := asMap(t, itemResponse["properties"])
+	itemType := asMap(t, itemProps["_type"])
+	itemTypeEnum, ok := itemType["enum"].([]interface{})
+	if !ok || len(itemTypeEnum) != 1 || itemTypeEnum[0] != itemTypeName {
+		t.Fatalf("expected ItemResponse _type enum [%s], got %#v", itemTypeName, itemType["enum"])
+	}
+
+	errorResponse := asMap(t, schemas["ErrorResponse"])
+	errorProps := asMap(t, errorResponse["properties"])
+	errorType := asMap(t, errorProps["_type"])
+	errorTypeEnum, ok := errorType["enum"].([]interface{})
+	if !ok || len(errorTypeEnum) != 1 || errorTypeEnum[0] != errorTypeName {
+		t.Fatalf("expected ErrorResponse _type enum [%s], got %#v", errorTypeName, errorType["enum"])
+	}
+}
+
+func TestGenerateTableYAML_PathParamsPreferEnumConstraint(t *testing.T) {
+	table := config.TableConfig{
+		Name: "users",
+		PrimaryKey: config.KeyConfig{
+			Field:   "userId",
+			Pattern: "^u[0-9]+$",
+		},
+		Schema: map[string]interface{}{
+			"type":                 "object",
+			"additionalProperties": false,
+			"properties": map[string]interface{}{
+				"userId": map[string]interface{}{
+					"type":    "string",
+					"pattern": "^u[0-9]+$",
+				},
+				"status": map[string]interface{}{
+					"type": "string",
+					"enum": []interface{}{"active", "inactive"},
+				},
+			},
+		},
+		Indexes: []config.IndexConfig{
+			{
+				Name: "by_status",
+				PrimaryKey: config.KeyConfig{
+					Field: "status",
+				},
+			},
+		},
+	}
+
+	doc := parseDoc(t, table, false)
+	paths := asMap(t, doc["paths"])
+
+	getItemOp := getOperation(t, paths, "/v1/users/data/{userId}/_item", "get")
+	userIDParam := parameterByName(t, getItemOp, "userId")
+	userIDSchema := asMap(t, userIDParam["schema"])
+	if got, _ := userIDSchema["pattern"].(string); got != "^u[0-9]+$" {
+		t.Fatalf("expected userId path pattern %q, got %q", "^u[0-9]+$", got)
+	}
+
+	indexOp := getOperation(t, paths, "/v1/users/_index/by_status/{status}/_items", "get")
+	statusParam := parameterByName(t, indexOp, "status")
+	statusSchema := asMap(t, statusParam["schema"])
+	if _, ok := statusSchema["pattern"]; ok {
+		t.Fatalf("did not expect enum-constrained path parameter to include pattern")
+	}
+	enumVals, ok := statusSchema["enum"].([]interface{})
+	if !ok || len(enumVals) != 2 || enumVals[0] != "active" || enumVals[1] != "inactive" {
+		t.Fatalf("expected enum [active inactive], got %#v", statusSchema["enum"])
 	}
 }
 
@@ -289,6 +382,23 @@ func parameterNames(t *testing.T, operation map[string]interface{}) map[string]b
 		}
 	}
 	return params
+}
+
+func parameterByName(t *testing.T, operation map[string]interface{}, name string) map[string]interface{} {
+	t.Helper()
+	paramList, ok := operation["parameters"].([]interface{})
+	if !ok {
+		t.Fatalf("expected parameters in operation")
+	}
+	for _, raw := range paramList {
+		param := asMap(t, raw)
+		paramName, _ := param["name"].(string)
+		if paramName == name {
+			return param
+		}
+	}
+	t.Fatalf("expected parameter %q", name)
+	return nil
 }
 
 func requireParam(t *testing.T, params map[string]bool, name string) {

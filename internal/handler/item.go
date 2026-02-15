@@ -53,7 +53,7 @@ func (h *Handler) handleGetItem(th *tableHandler) http.HandlerFunc {
 		data = model.InjectKeys(data, th.config.PrimaryKey.Field, pk, rkField, rkValue)
 		data = applyProjection(r, data, th)
 
-		writeJSON(w, http.StatusOK, data)
+		writeJSON(w, http.StatusOK, itemPayload(data))
 	}
 }
 
@@ -136,7 +136,7 @@ func (h *Handler) handlePutItem(th *tableHandler) http.HandlerFunc {
 		}
 
 		result := model.InjectKeys(stripped, th.config.PrimaryKey.Field, pk, rkField, rkValue)
-		writeJSON(w, http.StatusOK, result)
+		writeJSON(w, http.StatusOK, itemPayload(result))
 	}
 }
 
@@ -242,7 +242,7 @@ func (h *Handler) handlePatchItem(th *tableHandler) http.HandlerFunc {
 			return
 		}
 
-		writeJSON(w, http.StatusOK, mergedWithKeys)
+		writeJSON(w, http.StatusOK, itemPayload(mergedWithKeys))
 	}
 }
 

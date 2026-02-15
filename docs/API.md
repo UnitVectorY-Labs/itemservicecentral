@@ -5,7 +5,16 @@ All endpoints are rooted at `/v1/{table}` and return JSON (`Content-Type: applic
 Error response format:
 
 ```json
-{"error": "error message"}
+{"_type": "error", "error": "error message"}
+```
+
+Single-item success responses include:
+
+```json
+{
+  "_type": "item",
+  "...": "table fields"
+}
 ```
 
 ## Swagger / OpenAPI Endpoints (Optional)
@@ -37,6 +46,8 @@ Optional query parameters:
 
 - `fields`: comma-separated fields to return
 
+Success response payload type: `_type: "item"`.
+
 ### PUT - Create or replace an item
 
 Primary Key-only tables:
@@ -52,6 +63,8 @@ PUT /v1/{table}/data/{primaryKey}/{rangeKey}/_item
 ```
 
 The request body is validated against the table schema. If Primary Key or Range Key fields are present in the body, they must match URL values.
+
+Success response payload type: `_type: "item"`.
 
 ### PATCH - Partial update (JSON Merge Patch)
 
@@ -75,6 +88,8 @@ Applies [RFC 7396 JSON Merge Patch](https://tools.ietf.org/html/rfc7396) to the 
 - Item must already exist (`404` if not found).
 - If another write updates the same item between read and write, PATCH returns `409 Conflict`.
 
+Success response payload type: `_type: "item"`.
+
 ### DELETE - Delete an item
 
 Primary Key-only tables:
@@ -97,6 +112,7 @@ List responses are paginated:
 
 ```json
 {
+  "_type": "items",
   "items": [...],
   "_meta": {
     "nextPageToken": "...",
@@ -203,7 +219,12 @@ URL key values must:
 - be non-empty,
 - be at most 512 characters,
 - match `^[A-Za-z_][A-Za-z0-9._-]*$`,
-- match configured key `pattern` expressions.
+- match configured key `pattern` expressions when provided.
+
+OpenAPI path parameter schemas always include key validation constraints:
+
+- `enum` is used when the corresponding key field has an enum in table schema.
+- otherwise `pattern` is used (configured key pattern when set, or the universal minimum pattern `^[A-Za-z_][A-Za-z0-9._-]*$`).
 
 ### JSON Key Rules
 

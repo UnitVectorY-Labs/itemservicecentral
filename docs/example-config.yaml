@@ -39,8 +39,13 @@ tables:
           pattern: "^[A-Za-z_][A-Za-z0-9._-]*$"
         name:
           type: string
+          maxLength: 100
+          example: "John Doe"
         email:
           type: string
+          format: email
+          maxLength: 255
+          example: "john@example.com"
         status:
           type: string
           enum: ["active", "inactive", "banned"]

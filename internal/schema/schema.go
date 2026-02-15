@@ -2,6 +2,7 @@ package schema
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -40,6 +41,7 @@ var (
 		"title":                {},
 		"description":          {},
 		"default":              {},
+		"example":              {},
 		"examples":             {},
 	}
 	forbiddenKeywords = map[string]string{
@@ -170,11 +172,11 @@ func Compile(rawSchema interface{}) (*Validator, error) {
 	}
 
 	c := jsonschema.NewCompiler()
-	if err := c.AddResource("schema.json", schemaDoc); err != nil {
+	if err := c.AddResource("urn:itemservicecentral:schema", schemaDoc); err != nil {
 		return nil, fmt.Errorf("failed to add schema resource: %w", err)
 	}
 
-	compiled, err := c.Compile("schema.json")
+	compiled, err := c.Compile("urn:itemservicecentral:schema")
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile schema: %w", err)
 	}
@@ -195,8 +197,47 @@ func (v *Validator) Validate(doc map[string]interface{}) error {
 	}
 
 	if err := v.compiled.Validate(inst); err != nil {
-		return fmt.Errorf("validation failed: %w", err)
+		return formatValidationError(err)
 	}
 
 	return nil
+}
+
+func formatValidationError(err error) error {
+	var validationErr *jsonschema.ValidationError
+	if !errors.As(err, &validationErr) {
+		return fmt.Errorf("validation failed: %v", err)
+	}
+
+	lines := validationErrorLines(validationErr.BasicOutput())
+	if len(lines) == 0 {
+		return fmt.Errorf("validation failed: jsonschema validation failed")
+	}
+	return fmt.Errorf("validation failed: jsonschema validation failed\n%s", strings.Join(lines, "\n"))
+}
+
+func validationErrorLines(output *jsonschema.OutputUnit) []string {
+	if output == nil {
+		return nil
+	}
+
+	lines := make([]string, 0, len(output.Errors))
+	appendValidationErrorLines(output, &lines)
+	return lines
+}
+
+func appendValidationErrorLines(output *jsonschema.OutputUnit, lines *[]string) {
+	if output == nil {
+		return
+	}
+	if output.Error != nil {
+		location := output.InstanceLocation
+		if location == "" {
+			location = "/"
+		}
+		*lines = append(*lines, fmt.Sprintf("- at '%s': %s", location, output.Error.String()))
+	}
+	for i := range output.Errors {
+		appendValidationErrorLines(&output.Errors[i], lines)
+	}
 }
