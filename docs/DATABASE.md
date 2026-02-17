@@ -42,13 +42,33 @@ Configured indexes are created as PostgreSQL indexes on JSONB expressions.
 
 ## Migration Behavior
 
-Migrations use the `_meta` table to track table and index metadata.
+Migrations use the `_meta` table to track table/index metadata and the active minimal table-structure hash.
 
 On each migration run:
 
 - missing tables and indexes are created,
 - existing objects are reconciled with current config,
-- key field immutability is enforced (existing table key field names cannot be changed).
+- key field immutability is enforced (existing table key field names cannot be changed),
+- the hash of the minimal table-structure configuration is updated in `_meta`.
+
+## API Startup Validation
+
+On startup, the `api` command validates that the current minimal table-structure hash matches the hash stored in `_meta`.
+
+The minimal table-structure hash includes only:
+
+- table names,
+- each table primary/range key field names,
+- index names,
+- each index primary/range key field names.
+
+It does not include non-structural settings such as JSON Schema definitions, scan flags, key patterns, JWT, or Swagger settings.
+
+- if hashes match, startup continues,
+- if hashes differ (or hash metadata is missing), startup fails and instructs you to run `migrate`,
+- `-skip-config-validation` (or `SKIP_CONFIG_VALIDATION=true`) bypasses this check.
+
+The `api` command does not create, alter, or drop tables/indexes.
 
 Additional migration flags:
 

@@ -4,7 +4,7 @@
 # composite-key tables, indexes, and available options.
 
 server:
-  # HTTP listen port (default: 8080). Can be overridden with -port or ISC_PORT.
+  # HTTP listen port (default: 8080). Can be overridden with -port or PORT.
   port: 8080
 
   jwt:

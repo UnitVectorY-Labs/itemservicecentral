@@ -86,21 +86,21 @@ func flagProvided(fs *flag.FlagSet, name string) bool {
 	return provided
 }
 
-func resolveSwaggerEnabled(fs *flag.FlagSet, flagValue bool, cfgDefault bool) bool {
-	if flagProvided(fs, "swagger-enabled") {
+func resolveSkipConfigValidation(fs *flag.FlagSet, flagValue bool) bool {
+	if flagProvided(fs, "skip-config-validation") {
 		return flagValue
 	}
 
-	envValue, envSet := os.LookupEnv("ISC_SWAGGER_ENABLED")
-	if envSet {
-		parsed, err := strconv.ParseBool(strings.TrimSpace(envValue))
-		if err != nil {
-			log.Fatalf("invalid ISC_SWAGGER_ENABLED value %q: %v", envValue, err)
-		}
-		return parsed
+	envValue, envSet := os.LookupEnv("SKIP_CONFIG_VALIDATION")
+	if !envSet {
+		return false
 	}
 
-	return cfgDefault
+	parsed, err := strconv.ParseBool(strings.TrimSpace(envValue))
+	if err != nil {
+		log.Fatalf("invalid SKIP_CONFIG_VALIDATION value %q: %v", envValue, err)
+	}
+	return parsed
 }
 
 func runAPI() {
@@ -113,26 +113,26 @@ func runAPI() {
 	dbUser := fs.String("db-user", "", "Database username")
 	dbPassword := fs.String("db-password", "", "Database password")
 	dbSSLMode := fs.String("db-sslmode", "disable", "SSL mode")
-	swaggerEnabledFlag := fs.Bool("swagger-enabled", false, "Enable Swagger UI and OpenAPI endpoints")
+	skipConfigValidationFlag := fs.Bool("skip-config-validation", false, "Skip configuration hash validation against database metadata")
 	fs.Parse(os.Args[2:])
 
-	*configPath = envOrDefault(*configPath, "config.yaml", "ISC_CONFIG")
-	*port = envOrDefault(*port, "", "ISC_PORT")
-	*dbHost = envOrDefault(*dbHost, "localhost", "ISC_DB_HOST")
-	*dbPort = envOrDefault(*dbPort, "5432", "ISC_DB_PORT")
-	*dbName = envOrDefault(*dbName, "", "ISC_DB_NAME")
-	*dbUser = envOrDefault(*dbUser, "", "ISC_DB_USER")
-	*dbPassword = envOrDefault(*dbPassword, "", "ISC_DB_PASSWORD")
-	*dbSSLMode = envOrDefault(*dbSSLMode, "disable", "ISC_DB_SSLMODE")
+	*configPath = envOrDefault(*configPath, "config.yaml", "CONFIG")
+	*port = envOrDefault(*port, "", "PORT")
+	*dbHost = envOrDefault(*dbHost, "localhost", "DB_HOST")
+	*dbPort = envOrDefault(*dbPort, "5432", "DB_PORT")
+	*dbName = envOrDefault(*dbName, "", "DB_NAME")
+	*dbUser = envOrDefault(*dbUser, "", "DB_USER")
+	*dbPassword = envOrDefault(*dbPassword, "", "DB_PASSWORD")
+	*dbSSLMode = envOrDefault(*dbSSLMode, "disable", "DB_SSLMODE")
 
 	if *dbName == "" {
-		log.Fatal("database name is required: set -db-name or ISC_DB_NAME")
+		log.Fatal("database name is required: set -db-name or DB_NAME")
 	}
 	if *dbUser == "" {
-		log.Fatal("database user is required: set -db-user or ISC_DB_USER")
+		log.Fatal("database user is required: set -db-user or DB_USER")
 	}
 	if *dbPassword == "" {
-		log.Fatal("database password is required: set -db-password or ISC_DB_PASSWORD")
+		log.Fatal("database password is required: set -db-password or DB_PASSWORD")
 	}
 
 	dbPortInt, err := strconv.Atoi(*dbPort)
@@ -149,8 +149,6 @@ func runAPI() {
 		log.Fatalf("invalid config: %v", err)
 	}
 
-	cfg.Server.Swagger.Enabled = resolveSwaggerEnabled(fs, *swaggerEnabledFlag, cfg.Server.Swagger.Enabled)
-
 	// Override port from flag/env if set
 	if *port != "" {
 		p, err := strconv.Atoi(*port)
@@ -166,8 +164,13 @@ func runAPI() {
 	}
 	defer db.Close()
 
-	if err := database.Migrate(db, cfg.Tables, database.MigrateOptions{}); err != nil {
-		log.Fatalf("failed to run migrations: %v", err)
+	skipConfigValidation := resolveSkipConfigValidation(fs, *skipConfigValidationFlag)
+	if skipConfigValidation {
+		log.Printf("WARNING: skipping config hash validation; database/config mismatch checks are disabled")
+	} else {
+		if err := database.ValidateTablesConfigHash(db, cfg.Tables); err != nil {
+			log.Fatalf("configuration validation failed: %v", err)
+		}
 	}
 
 	store := database.NewStore(db)
@@ -243,7 +246,7 @@ func runValidate() {
 	configPath := fs.String("config", "config.yaml", "Path to config file")
 	fs.Parse(os.Args[2:])
 
-	*configPath = envOrDefault(*configPath, "config.yaml", "ISC_CONFIG")
+	*configPath = envOrDefault(*configPath, "config.yaml", "CONFIG")
 
 	cfg, err := config.Load(*configPath)
 	if err != nil {
@@ -264,7 +267,14 @@ func runValidate() {
 		}
 	}
 
+	configHash, err := database.TablesConfigHash(cfg.Tables)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to compute config hash: %v\n", err)
+		os.Exit(1)
+	}
+
 	fmt.Println("Configuration is valid")
+	fmt.Printf("Config hash: %s\n", configHash)
 }
 
 func runSwagger() {
@@ -274,7 +284,7 @@ func runSwagger() {
 	outputPath := fs.String("output", "", "Write YAML to file (stdout when omitted)")
 	fs.Parse(os.Args[2:])
 
-	*configPath = envOrDefault(*configPath, "config.yaml", "ISC_CONFIG")
+	*configPath = envOrDefault(*configPath, "config.yaml", "CONFIG")
 
 	if strings.TrimSpace(*tableName) == "" {
 		log.Fatal("table name is required: set -table")
@@ -325,22 +335,22 @@ func runMigrate() {
 	dryRun := fs.Bool("dry-run", false, "Print changes without applying them")
 	fs.Parse(os.Args[2:])
 
-	*configPath = envOrDefault(*configPath, "config.yaml", "ISC_CONFIG")
-	*dbHost = envOrDefault(*dbHost, "localhost", "ISC_DB_HOST")
-	*dbPort = envOrDefault(*dbPort, "5432", "ISC_DB_PORT")
-	*dbName = envOrDefault(*dbName, "", "ISC_DB_NAME")
-	*dbUser = envOrDefault(*dbUser, "", "ISC_DB_USER")
-	*dbPassword = envOrDefault(*dbPassword, "", "ISC_DB_PASSWORD")
-	*dbSSLMode = envOrDefault(*dbSSLMode, "disable", "ISC_DB_SSLMODE")
+	*configPath = envOrDefault(*configPath, "config.yaml", "CONFIG")
+	*dbHost = envOrDefault(*dbHost, "localhost", "DB_HOST")
+	*dbPort = envOrDefault(*dbPort, "5432", "DB_PORT")
+	*dbName = envOrDefault(*dbName, "", "DB_NAME")
+	*dbUser = envOrDefault(*dbUser, "", "DB_USER")
+	*dbPassword = envOrDefault(*dbPassword, "", "DB_PASSWORD")
+	*dbSSLMode = envOrDefault(*dbSSLMode, "disable", "DB_SSLMODE")
 
 	if *dbName == "" {
-		log.Fatal("database name is required: set -db-name or ISC_DB_NAME")
+		log.Fatal("database name is required: set -db-name or DB_NAME")
 	}
 	if *dbUser == "" {
-		log.Fatal("database user is required: set -db-user or ISC_DB_USER")
+		log.Fatal("database user is required: set -db-user or DB_USER")
 	}
 	if *dbPassword == "" {
-		log.Fatal("database password is required: set -db-password or ISC_DB_PASSWORD")
+		log.Fatal("database password is required: set -db-password or DB_PASSWORD")
 	}
 
 	dbPortInt, err := strconv.Atoi(*dbPort)
