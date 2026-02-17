@@ -22,8 +22,8 @@ func TestWriteErrorIncludesType(t *testing.T) {
 	if body["_type"] != typeError {
 		t.Fatalf("expected _type=%q, got %v", typeError, body["_type"])
 	}
-	if body["error"] != "bad input" {
-		t.Fatalf("expected error message, got %v", body["error"])
+	if body["_error"] != "bad input" {
+		t.Fatalf("expected error message, got %v", body["_error"])
 	}
 }
 

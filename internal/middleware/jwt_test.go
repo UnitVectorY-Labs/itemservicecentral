@@ -93,8 +93,8 @@ func TestMissingAuthHeader_Returns401(t *testing.T) {
 	if body["_type"] != "error" {
 		t.Fatalf("expected _type=error, got %v", body["_type"])
 	}
-	if body["error"] != "missing authorization header" {
-		t.Fatalf("unexpected error message: %v", body["error"])
+	if body["_error"] != "missing authorization header" {
+		t.Fatalf("unexpected error message: %v", body["_error"])
 	}
 }
 

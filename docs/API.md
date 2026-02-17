@@ -2,19 +2,38 @@
 
 All endpoints are rooted at `/v1/{table}` and return JSON (`Content-Type: application/json`).
 
-Error response format:
+Attributes prefixed with an underscore (for example `_type`) are reserved for use by itemservicecentral functionality and are not allowed as field names in table's JSON schema.
 
-```json
-{"_type": "error", "error": "error message"}
-```
 
-Single-item success responses include:
+## Response Types
+
+
+Single-item success responses always include a `_type` field with the value `item`.
 
 ```json
 {
   "_type": "item",
   "...": "table fields"
 }
+```
+
+List responses include `_type: "items"` and an `_meta` object for pagination.
+
+```json
+{
+  "_type": "items",
+  "items": [...],
+  "_meta": {
+    "nextPageToken": "...",
+    "previousPageToken": "..."
+  }
+}
+```
+
+Error response format:
+
+```json
+{"_type": "error", "_error": "error message"}
 ```
 
 ## Swagger / OpenAPI Endpoints (Optional)
@@ -24,7 +43,7 @@ When Swagger support is enabled, each table exposes:
 - `GET /v1/{table}/_swagger` (embedded Swagger UI HTML)
 - `GET /v1/{table}/_openapi` (generated OpenAPI YAML)
 
-These endpoints are public (no JWT required), even when JWT is enabled for API operations.
+These endpoints are public (no authentication required), even when JWT is enabled for API operations.
 
 ## Item Endpoints
 

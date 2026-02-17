@@ -201,7 +201,7 @@ func buildSchemas(table config.TableConfig) orderedMap {
 					{Key: "type", Value: "string"},
 					{Key: "enum", Value: []interface{}{errorTypeName}},
 				}},
-				{Key: "error", Value: orderedMap{{Key: "type", Value: "string"}}},
+				{Key: "_error", Value: orderedMap{{Key: "type", Value: "string"}}},
 			}},
 			{Key: "required", Value: []interface{}{"_type", "error"}},
 		}},

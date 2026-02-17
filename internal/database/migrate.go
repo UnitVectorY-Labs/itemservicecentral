@@ -50,6 +50,10 @@ func Migrate(db *sql.DB, tables []config.TableConfig, opts MigrateOptions) error
 		}
 	}
 
+	if err := upsertTablesConfigHash(tx, tables, opts.DryRun); err != nil {
+		return fmt.Errorf("store config hash: %w", err)
+	}
+
 	if opts.DryRun {
 		return tx.Rollback()
 	}
@@ -220,6 +224,9 @@ func cleanupTables(tx *sql.Tx, configuredTables map[string]bool, dryRun bool) er
 		var name string
 		if err := rows.Scan(&name); err != nil {
 			return fmt.Errorf("scanning table name: %w", err)
+		}
+		if name == metaConfigHashRowName {
+			continue
 		}
 		if !configuredTables[name] {
 			toDrop = append(toDrop, name)

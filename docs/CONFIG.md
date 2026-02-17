@@ -2,58 +2,14 @@
 
 itemservicecentral has two configuration layers:
 
-1. runtime options passed as command flags or environment variables,
+1. Runtime options passed as command flags or environment variables defined in [Usage](./USAGE.md)
 2. a YAML file that defines server behavior, tables, validation, and indexes.
-
-## Runtime Options (Flags and Environment Variables)
-
-Most runtime flags have a corresponding environment variable. If both are set, the flag value is used.
-
-### Common Runtime Options
-
-These options are shared across commands.
-
-| Flag | Environment Variable | Commands | Default | Description |
-|------|----------------------|----------|---------|-------------|
-| `-config` | `ISC_CONFIG` | `api`, `validate`, `migrate`, `swagger` | `config.yaml` | Path to YAML configuration file |
-| `-db-host` | `ISC_DB_HOST` | `api`, `migrate` | `localhost` | PostgreSQL host |
-| `-db-port` | `ISC_DB_PORT` | `api`, `migrate` | `5432` | PostgreSQL port |
-| `-db-name` | `ISC_DB_NAME` | `api`, `migrate` | required | PostgreSQL database name |
-| `-db-user` | `ISC_DB_USER` | `api`, `migrate` | required | PostgreSQL username |
-| `-db-password` | `ISC_DB_PASSWORD` | `api`, `migrate` | required | PostgreSQL password |
-| `-db-sslmode` | `ISC_DB_SSLMODE` | `api`, `migrate` | `disable` | PostgreSQL SSL mode |
-| `-swagger-enabled` | `ISC_SWAGGER_ENABLED` | `api` | `false` | Enable public Swagger/OpenAPI endpoints for each table |
-
-### Command-Specific Runtime Options
-
-`api`:
-
-| Flag | Environment Variable | Default | Description |
-|------|----------------------|---------|-------------|
-| `-port` | `ISC_PORT` | `8080` | HTTP listen port (overrides `server.port` in YAML) |
-| `-swagger-enabled` | `ISC_SWAGGER_ENABLED` | `false` | Overrides `server.swagger.enabled` |
-
-`validate`:
-
-- no command-specific options.
-
-`migrate`:
-
-| Flag | Environment Variable | Default | Description |
-|------|----------------------|---------|-------------|
-| `-cleanup` | — | `false` | Remove tables and indexes not present in config |
-| `-dry-run` | — | `false` | Print planned migration changes only |
-
-`swagger`:
-
-| Flag | Environment Variable | Default | Description |
-|------|----------------------|---------|-------------|
-| `-table` | — | required | Table name to generate OpenAPI for |
-| `-output` | — | stdout | Output path for generated YAML |
 
 ## YAML Configuration File
 
-The YAML file defines the service contract. See [example-config.yaml](./example-config.yaml).
+The YAML file defines the service contract. This includes the server configuration (port, JWT settings, and Swagger settings), the tables to be exposed by the API, their JSON schema for validation, and any secondary indexes for those tables.
+
+See [example-config.yaml](./example-config.yaml).
 
 ### Top-Level Layout
 
@@ -85,7 +41,7 @@ tables:
 
 | Field | Required | Default | Description |
 |------|----------|---------|-------------|
-| `server.port` | No | `8080` | API listen port. Overridden by `-port` / `ISC_PORT` for `api`. |
+| `server.port` | No | `8080` | API listen port. Overridden by `-port` / `PORT` for `api`. |
 | `server.jwt.enabled` | No | `false` | Enables JWT authentication when `true`. |
 | `server.jwt.jwksUrl` | When JWT enabled | — | JWKS endpoint for RS256 public keys. |
 | `server.jwt.issuer` | No | — | Expected `iss` claim value. |
@@ -95,6 +51,8 @@ tables:
 ### `tables` Section
 
 Each entry in `tables` defines one resource/table.
+
+Tables can be defined with only a Primary Key or with a composite key using both a Primary Key and Range Key. The API endpoints and database schema are designed accordingly based on the presence of a Range Key.
 
 #### Table Attributes
 
@@ -121,9 +79,10 @@ Schemas are intentionally restricted to keep behavior deterministic.
 
 Required rules:
 
-- top-level schema must declare `type: object`,
-- every object schema level must set `additionalProperties: false` (the `allowAdditionalProperties` policy is always false),
-- unsupported extension keywords are rejected (for example `$ref`, `$defs`, `definitions`, `allOf`, `anyOf`, `oneOf`, and conditional schema keywords).
+- top-level schema must declare `type: object`
+- every object schema level must set `additionalProperties: false` for every level of nesting
+- unsupported extension keywords are rejected (for example `$ref`, `$defs`, `definitions`, `allOf`, `anyOf`, `oneOf`, and conditional schema keywords)
+- all attribute names must match `^[A-Za-z][A-Za-z0-9_-]*$` to ensure they can be used as URL parameters without encoding
 
 Supported keyword set is limited to common validation primitives such as:
 
@@ -153,6 +112,8 @@ schema:
 
 ### `indexes` Section
 
+Secondary indexes provide an alternative method for querying items by a non-key field. The query capabilities provided by itemservicecentral's API are intentionally limited to keep the implementation simple and performant. Indexes are sparse and can be created on optional columns. The recommendation is to be intentional about the design of your data model and only provide the required query patterns via indexes. Creating composite keys with range keys is a common way to add flexibility with querying.
+
 Each index creates an alternate query path.
 
 | Field | Required | Description |
@@ -168,10 +129,3 @@ Index field constraints:
 
 - index key fields must be different from base table key fields,
 - index Range Key (if set) must be different from index Primary Key.
-
-## Related
-
-- [Database Model and Migrations](./DATABASE.md)
-- [API Reference](./API.md)
-- [Swagger / OpenAPI](./SWAGGER.md)
-- [CLI Usage](./USAGE.md)

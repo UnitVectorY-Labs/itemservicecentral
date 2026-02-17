@@ -1,14 +1,40 @@
 # CLI Usage and Configuration
 
-itemservicecentral provides five subcommands: `api`, `validate`, `migrate`, `swagger`, and `version`.
+itemservicecentral provides five subcommands to access different functionality:
+- `api` - run the API server
+- `validate` - validate your config
+- `migrate` - run database migrations
+- `swagger` - generate OpenAPI YAML for a single table
+- `version` - print the application version
 
-Most runtime flags have a corresponding environment variable prefixed with `ISC_`. When both are set, the CLI flag takes precedence.
+Most runtime flags have a corresponding environment variable. When both are set, the CLI flag takes precedence.
+
+## Common Parameters
+
+Some parameters are shared by multiple commands, those are documented here for reference. See the individual command sections below for command-specific parameters.
+
+The following parameters configure the PostgreSQL connection and are shared by the `api` and `migrate` commands which both connect to the database:
+
+| Flag | Environment Variable | Default | Description |
+|------|---------------------|---------|-------------|
+| `-db-host` | `DB_HOST` | `localhost` | Database host |
+| `-db-port` | `DB_PORT` | `5432` | Database port |
+| `-db-name` | `DB_NAME` | (required) | Database name |
+| `-db-user` | `DB_USER` | (required) | Database username |
+| `-db-password` | `DB_PASSWORD` | (required) | Database password |
+| `-db-sslmode` | `DB_SSLMODE` | `disable` | SSL mode |
+
+The config parameter is required for all commands except `version` as that provides the main configuration file for the service contract and server behavior.
+
+| Flag | Environment Variable | Default | Description |
+|------|---------------------|---------|-------------|
+| `-config` | `CONFIG` | `config.yaml` | Path to YAML config file, default is `config.yaml` |
 
 ## Commands
 
 ### `api`
 
-Starts the HTTP API server. Connects to PostgreSQL, runs migrations, and begins serving requests.
+Starts the HTTP API server. Connects to PostgreSQL, validates configuration does not need any migrations before starting, and serves requests.
 
 ```bash
 go run . api -config config.yaml -db-host localhost -db-port 5432 -db-name mydb -db-user myuser -db-password mypass
@@ -18,33 +44,19 @@ Flags:
 
 | Flag | Environment Variable | Default | Description |
 |------|---------------------|---------|-------------|
-| `-config` | `ISC_CONFIG` | `config.yaml` | Path to YAML config file |
-| `-port` | `ISC_PORT` | `8080` | Server port (overrides config file) |
-| `-db-host` | `ISC_DB_HOST` | `localhost` | Database host |
-| `-db-port` | `ISC_DB_PORT` | `5432` | Database port |
-| `-db-name` | `ISC_DB_NAME` | (required) | Database name |
-| `-db-user` | `ISC_DB_USER` | (required) | Database username |
-| `-db-password` | `ISC_DB_PASSWORD` | (required) | Database password |
-| `-db-sslmode` | `ISC_DB_SSLMODE` | `disable` | SSL mode |
-| `-swagger-enabled` | `ISC_SWAGGER_ENABLED` | `false` | Enable unauthenticated Swagger UI (`/_swagger`) and OpenAPI YAML (`/_openapi`) endpoints |
+| `-skip-config-validation` | `SKIP_CONFIG_VALIDATION` | `false` | Skip `_meta` minimal table-structure hash validation at startup (unsafe) |
 
 ### `validate`
 
-Validates the YAML configuration file and compiles all JSON schemas without starting the server. Useful for CI pipelines.
+Validates the YAML configuration file, compiles all JSON schemas, and prints the computed minimal table-structure hash without starting the server. Useful for CI pipelines.
 
 ```bash
 go run . validate -config config.yaml
 ```
 
-Flags:
-
-| Flag | Environment Variable | Default | Description |
-|------|---------------------|---------|-------------|
-| `-config` | `ISC_CONFIG` | `config.yaml` | Path to YAML config file |
-
 ### `migrate`
 
-Runs database migrations (creates tables and indexes) without starting the server.
+Runs database migrations (creates tables and indexes) and updates the stored minimal table-structure hash in `_meta` without starting the server. Not all configuration changes require a migration, but this is a safe way to ensure the database is up to date with the config. The API will refuse to start by default if a migration is needed but has not been applied, so this is a necessary step when deploying config changes.
 
 ```bash
 go run . migrate -config config.yaml -db-host localhost -db-port 5432 -db-name mydb -db-user myuser -db-password mypass
@@ -54,13 +66,6 @@ Flags:
 
 | Flag | Environment Variable | Default | Description |
 |------|---------------------|---------|-------------|
-| `-config` | `ISC_CONFIG` | `config.yaml` | Path to YAML config file |
-| `-db-host` | `ISC_DB_HOST` | `localhost` | Database host |
-| `-db-port` | `ISC_DB_PORT` | `5432` | Database port |
-| `-db-name` | `ISC_DB_NAME` | (required) | Database name |
-| `-db-user` | `ISC_DB_USER` | (required) | Database username |
-| `-db-password` | `ISC_DB_PASSWORD` | (required) | Database password |
-| `-db-sslmode` | `ISC_DB_SSLMODE` | `disable` | SSL mode |
 | `-cleanup` | — | `false` | Delete tables and indexes not in config |
 | `-dry-run` | — | `false` | Print changes without applying them |
 
@@ -84,22 +89,9 @@ Flags:
 
 | Flag | Environment Variable | Default | Description |
 |------|---------------------|---------|-------------|
-| `-config` | `ISC_CONFIG` | `config.yaml` | Path to YAML config file |
 | `-table` | — | (required) | Table name to generate OpenAPI for |
 | `-output` | — | stdout | Write YAML to a file path instead of stdout |
 
-## Database Connection Parameters
-
-The following parameters configure the PostgreSQL connection and are shared by the `api` and `migrate` commands:
-
-| Flag | Environment Variable | Default | Description |
-|------|---------------------|---------|-------------|
-| `-db-host` | `ISC_DB_HOST` | `localhost` | Database host |
-| `-db-port` | `ISC_DB_PORT` | `5432` | Database port |
-| `-db-name` | `ISC_DB_NAME` | (required) | Database name |
-| `-db-user` | `ISC_DB_USER` | (required) | Database username |
-| `-db-password` | `ISC_DB_PASSWORD` | (required) | Database password |
-| `-db-sslmode` | `ISC_DB_SSLMODE` | `disable` | SSL mode |
 
 ## Docker
 
@@ -108,15 +100,12 @@ Build and run using Docker:
 ```bash
 docker build -t itemservicecentral .
 docker run -p 8080:8080 \
-  -e ISC_CONFIG=/config.yaml \
-  -e ISC_DB_HOST=host \
-  -e ISC_DB_PORT=5432 \
-  -e ISC_DB_NAME=dbname \
-  -e ISC_DB_USER=user \
-  -e ISC_DB_PASSWORD=pass \
-  -e ISC_DB_SSLMODE=disable \
+  -e CONFIG=/config.yaml \
+  -e DB_HOST=localhost \
+  -e DB_PORT=5432 \
+  -e DB_NAME=appdb \
+  -e DB_USER=postgres \
+  -e DB_PASSWORD=postgres \
   -v ./config.yaml:/config.yaml:ro \
   itemservicecentral
 ```
-
-The Docker image uses a distroless base for minimal attack surface.
