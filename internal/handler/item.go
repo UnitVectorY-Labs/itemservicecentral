@@ -95,7 +95,7 @@ func (h *Handler) handlePutItem(th *tableHandler) http.HandlerFunc {
 			return
 		}
 
-		var doc map[string]interface{}
+		var doc map[string]any
 		if err := json.Unmarshal(body, &doc); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid JSON body")
 			return
@@ -178,7 +178,7 @@ func (h *Handler) handlePatchItem(th *tableHandler) http.HandlerFunc {
 			return
 		}
 
-		var patch map[string]interface{}
+		var patch map[string]any
 		if err := json.Unmarshal(body, &patch); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid JSON body")
 			return
@@ -283,7 +283,7 @@ func (h *Handler) handleDeleteItem(th *tableHandler) http.HandlerFunc {
 }
 
 // applyProjection applies field projection based on the fields query parameter.
-func applyProjection(r *http.Request, data map[string]interface{}, th *tableHandler) map[string]interface{} {
+func applyProjection(r *http.Request, data map[string]any, th *tableHandler) map[string]any {
 	fieldsParam := r.URL.Query().Get("fields")
 	fields := model.ParseFieldsParam(fieldsParam)
 

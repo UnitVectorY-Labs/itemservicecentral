@@ -6,7 +6,7 @@ import (
 )
 
 func TestStripKeys_BothPkAndRk(t *testing.T) {
-	data := map[string]interface{}{
+	data := map[string]any{
 		"id":    "123",
 		"sort":  "abc",
 		"name":  "test",
@@ -14,7 +14,7 @@ func TestStripKeys_BothPkAndRk(t *testing.T) {
 	}
 	result := StripKeys(data, "id", "sort")
 
-	expected := map[string]interface{}{
+	expected := map[string]any{
 		"name":  "test",
 		"value": 42,
 	}
@@ -24,14 +24,14 @@ func TestStripKeys_BothPkAndRk(t *testing.T) {
 }
 
 func TestStripKeys_OnlyPk(t *testing.T) {
-	data := map[string]interface{}{
+	data := map[string]any{
 		"id":    "123",
 		"name":  "test",
 		"value": 42,
 	}
 	result := StripKeys(data, "id", "")
 
-	expected := map[string]interface{}{
+	expected := map[string]any{
 		"name":  "test",
 		"value": 42,
 	}
@@ -41,13 +41,13 @@ func TestStripKeys_OnlyPk(t *testing.T) {
 }
 
 func TestInjectKeys_BothPkAndRk(t *testing.T) {
-	data := map[string]interface{}{
+	data := map[string]any{
 		"name":  "test",
 		"value": 42,
 	}
 	result := InjectKeys(data, "id", "123", "sort", "abc")
 
-	expected := map[string]interface{}{
+	expected := map[string]any{
 		"id":    "123",
 		"sort":  "abc",
 		"name":  "test",
@@ -59,13 +59,13 @@ func TestInjectKeys_BothPkAndRk(t *testing.T) {
 }
 
 func TestInjectKeys_OnlyPk(t *testing.T) {
-	data := map[string]interface{}{
+	data := map[string]any{
 		"name":  "test",
 		"value": 42,
 	}
 	result := InjectKeys(data, "id", "123", "", "")
 
-	expected := map[string]interface{}{
+	expected := map[string]any{
 		"id":    "123",
 		"name":  "test",
 		"value": 42,
@@ -76,11 +76,11 @@ func TestInjectKeys_OnlyPk(t *testing.T) {
 }
 
 func TestMergePatch_Basic(t *testing.T) {
-	target := map[string]interface{}{
+	target := map[string]any{
 		"name": "old",
 		"age":  float64(30),
 	}
-	patch := map[string]interface{}{
+	patch := map[string]any{
 		"name": "new",
 	}
 	result := MergePatch(target, patch)
@@ -94,11 +94,11 @@ func TestMergePatch_Basic(t *testing.T) {
 }
 
 func TestMergePatch_NullDeletion(t *testing.T) {
-	target := map[string]interface{}{
+	target := map[string]any{
 		"name":  "test",
 		"email": "test@example.com",
 	}
-	patch := map[string]interface{}{
+	patch := map[string]any{
 		"email": nil,
 	}
 	result := MergePatch(target, patch)
@@ -112,20 +112,20 @@ func TestMergePatch_NullDeletion(t *testing.T) {
 }
 
 func TestMergePatch_NestedMerge(t *testing.T) {
-	target := map[string]interface{}{
-		"address": map[string]interface{}{
+	target := map[string]any{
+		"address": map[string]any{
 			"city":  "old",
 			"state": "CA",
 		},
 	}
-	patch := map[string]interface{}{
-		"address": map[string]interface{}{
+	patch := map[string]any{
+		"address": map[string]any{
 			"city": "new",
 		},
 	}
 	result := MergePatch(target, patch)
 
-	addr, ok := result["address"].(map[string]interface{})
+	addr, ok := result["address"].(map[string]any)
 	if !ok {
 		t.Fatal("MergePatch nested: address should be a map")
 	}
@@ -138,20 +138,20 @@ func TestMergePatch_NestedMerge(t *testing.T) {
 }
 
 func TestMergePatch_NestedNullDeletion(t *testing.T) {
-	target := map[string]interface{}{
-		"address": map[string]interface{}{
+	target := map[string]any{
+		"address": map[string]any{
 			"city":  "test",
 			"state": "CA",
 		},
 	}
-	patch := map[string]interface{}{
-		"address": map[string]interface{}{
+	patch := map[string]any{
+		"address": map[string]any{
 			"state": nil,
 		},
 	}
 	result := MergePatch(target, patch)
 
-	addr, ok := result["address"].(map[string]interface{})
+	addr, ok := result["address"].(map[string]any)
 	if !ok {
 		t.Fatal("MergePatch nested null: address should be a map")
 	}
@@ -164,7 +164,7 @@ func TestMergePatch_NestedNullDeletion(t *testing.T) {
 }
 
 func TestProjectFields_Subset(t *testing.T) {
-	data := map[string]interface{}{
+	data := map[string]any{
 		"id":    "123",
 		"sort":  "abc",
 		"name":  "test",
@@ -173,7 +173,7 @@ func TestProjectFields_Subset(t *testing.T) {
 	}
 	result := ProjectFields(data, []string{"name", "value"}, "id", "sort")
 
-	expected := map[string]interface{}{
+	expected := map[string]any{
 		"id":    "123",
 		"sort":  "abc",
 		"name":  "test",
@@ -185,7 +185,7 @@ func TestProjectFields_Subset(t *testing.T) {
 }
 
 func TestProjectFields_AlwaysIncludeKeys(t *testing.T) {
-	data := map[string]interface{}{
+	data := map[string]any{
 		"id":    "123",
 		"sort":  "abc",
 		"name":  "test",

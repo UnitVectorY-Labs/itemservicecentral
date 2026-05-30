@@ -24,12 +24,12 @@ func TestQueryIndexValidatesConfiguredPattern(t *testing.T) {
 				Field:   "itemId",
 				Pattern: "^[A-Za-z_][A-Za-z0-9._-]*$",
 			},
-			Schema: map[string]interface{}{
+			Schema: map[string]any{
 				"type":                 "object",
 				"additionalProperties": false,
-				"properties": map[string]interface{}{
-					"itemId": map[string]interface{}{"type": "string"},
-					"status": map[string]interface{}{"type": "string"},
+				"properties": map[string]any{
+					"itemId": map[string]any{"type": "string"},
+					"status": map[string]any{"type": "string"},
 				},
 			},
 			Indexes: []config.IndexConfig{

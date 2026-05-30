@@ -86,7 +86,7 @@ func TestMissingAuthHeader_Returns401(t *testing.T) {
 		t.Errorf("expected 401, got %d", rec.Code)
 	}
 
-	var body map[string]interface{}
+	var body map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("expected JSON error body, got: %v", err)
 	}

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"maps"
 	"net/http"
 )
 
@@ -11,7 +12,7 @@ const (
 	typeError = "error"
 )
 
-func writeJSON(w http.ResponseWriter, status int, data interface{}) {
+func writeJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(data)
@@ -26,11 +27,9 @@ func writeError(w http.ResponseWriter, status int, message string) {
 	})
 }
 
-func itemPayload(data map[string]interface{}) map[string]interface{} {
-	payload := make(map[string]interface{}, len(data)+1)
-	for k, v := range data {
-		payload[k] = v
-	}
+func itemPayload(data map[string]any) map[string]any {
+	payload := make(map[string]any, len(data)+1)
+	maps.Copy(payload, data)
 	payload["_type"] = typeItem
 	return payload
 }

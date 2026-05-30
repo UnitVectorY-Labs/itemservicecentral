@@ -68,8 +68,8 @@ var (
 
 // ValidateDefinition validates that a schema uses the supported subset and
 // enforces closed object schemas at every level.
-func ValidateDefinition(rawSchema interface{}) error {
-	root, ok := rawSchema.(map[string]interface{})
+func ValidateDefinition(rawSchema any) error {
+	root, ok := rawSchema.(map[string]any)
 	if !ok {
 		return fmt.Errorf("schema must be a JSON object")
 	}
@@ -80,7 +80,7 @@ func ValidateDefinition(rawSchema interface{}) error {
 	return validateSchemaNode(root, "$")
 }
 
-func validateSchemaNode(node map[string]interface{}, path string) error {
+func validateSchemaNode(node map[string]any, path string) error {
 	for key := range node {
 		if detail, forbidden := forbiddenKeywords[key]; forbidden {
 			return fmt.Errorf("schema at %s uses unsupported keyword %q: %s", path, key, detail)
@@ -108,12 +108,12 @@ func validateSchemaNode(node map[string]interface{}, path string) error {
 	}
 
 	if propsRaw, hasProps := node["properties"]; hasProps {
-		props, ok := propsRaw.(map[string]interface{})
+		props, ok := propsRaw.(map[string]any)
 		if !ok {
 			return fmt.Errorf("schema at %s.properties must be an object", path)
 		}
 		for propName, propRaw := range props {
-			propSchema, ok := propRaw.(map[string]interface{})
+			propSchema, ok := propRaw.(map[string]any)
 			if !ok {
 				return fmt.Errorf("schema at %s.properties.%s must be an object", path, propName)
 			}
@@ -125,11 +125,11 @@ func validateSchemaNode(node map[string]interface{}, path string) error {
 
 	if itemsRaw, hasItems := node["items"]; hasItems {
 		switch items := itemsRaw.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			if err := validateSchemaNode(items, path+".items"); err != nil {
 				return err
 			}
-		case []interface{}:
+		case []any:
 			return fmt.Errorf("schema at %s.items uses unsupported tuple schema form", path)
 		default:
 			return fmt.Errorf("schema at %s.items must be an object", path)
@@ -139,7 +139,7 @@ func validateSchemaNode(node map[string]interface{}, path string) error {
 	return nil
 }
 
-func requiresClosedObject(node map[string]interface{}) bool {
+func requiresClosedObject(node map[string]any) bool {
 	if t, ok := node["type"].(string); ok && t == "object" {
 		return true
 	}
@@ -156,7 +156,7 @@ func requiresClosedObject(node map[string]interface{}) bool {
 }
 
 // Compile takes a raw JSON Schema (as map[string]interface{} from YAML) and compiles it.
-func Compile(rawSchema interface{}) (*Validator, error) {
+func Compile(rawSchema any) (*Validator, error) {
 	if err := ValidateDefinition(rawSchema); err != nil {
 		return nil, fmt.Errorf("unsupported schema definition: %w", err)
 	}
@@ -185,7 +185,7 @@ func Compile(rawSchema interface{}) (*Validator, error) {
 }
 
 // Validate validates a JSON document against the compiled schema.
-func (v *Validator) Validate(doc map[string]interface{}) error {
+func (v *Validator) Validate(doc map[string]any) error {
 	docBytes, err := json.Marshal(doc)
 	if err != nil {
 		return fmt.Errorf("failed to marshal document to JSON: %w", err)

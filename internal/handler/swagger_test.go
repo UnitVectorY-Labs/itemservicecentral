@@ -110,19 +110,19 @@ func testSwaggerTable() config.TableConfig {
 			Field:   "itemId",
 			Pattern: "^[A-Za-z_][A-Za-z0-9._-]*$",
 		},
-		Schema: map[string]interface{}{
+		Schema: map[string]any{
 			"type":                 "object",
 			"additionalProperties": false,
-			"properties": map[string]interface{}{
-				"itemId": map[string]interface{}{
+			"properties": map[string]any{
+				"itemId": map[string]any{
 					"type":    "string",
 					"pattern": "^[A-Za-z_][A-Za-z0-9._-]*$",
 				},
-				"name": map[string]interface{}{
+				"name": map[string]any{
 					"type": "string",
 				},
 			},
-			"required": []interface{}{"itemId", "name"},
+			"required": []any{"itemId", "name"},
 		},
 	}
 }
