@@ -18,7 +18,7 @@ func TestBuildMinimalTableStructure_ExtractsOnlyStructuralFields(t *testing.T) {
 				Pattern: "ignored",
 			},
 			AllowTableScan: true,
-			Schema: map[string]interface{}{
+			Schema: map[string]any{
 				"type": "object",
 			},
 			Indexes: []IndexConfig{

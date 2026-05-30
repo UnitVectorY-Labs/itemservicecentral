@@ -15,19 +15,19 @@ func TestTablesConfigHash_IgnoresNonStructuralChanges(t *testing.T) {
 				Pattern: "^[A-Za-z_][A-Za-z0-9._-]*$",
 			},
 			AllowTableScan: false,
-			Schema: map[string]interface{}{
+			Schema: map[string]any{
 				"type":                 "object",
 				"additionalProperties": false,
-				"properties": map[string]interface{}{
-					"itemId": map[string]interface{}{
+				"properties": map[string]any{
+					"itemId": map[string]any{
 						"type":    "string",
 						"pattern": "^[A-Za-z_][A-Za-z0-9._-]*$",
 					},
-					"status": map[string]interface{}{
+					"status": map[string]any{
 						"type": "string",
 					},
 				},
-				"required": []interface{}{"itemId"},
+				"required": []any{"itemId"},
 			},
 			Indexes: []config.IndexConfig{
 				{
@@ -50,22 +50,22 @@ func TestTablesConfigHash_IgnoresNonStructuralChanges(t *testing.T) {
 				Pattern: "^.*$", // pattern changed, no DB structure impact
 			},
 			AllowTableScan: true, // API behavior changed, no DB structure impact
-			Schema: map[string]interface{}{
+			Schema: map[string]any{
 				"type":                 "object",
 				"additionalProperties": false,
-				"properties": map[string]interface{}{
-					"itemId": map[string]interface{}{
+				"properties": map[string]any{
+					"itemId": map[string]any{
 						"type":    "string",
 						"pattern": "^.*$",
 					},
-					"status": map[string]interface{}{
+					"status": map[string]any{
 						"type": "string",
 					},
-					"name": map[string]interface{}{
+					"name": map[string]any{
 						"type": "string",
 					},
 				},
-				"required": []interface{}{"itemId", "name"},
+				"required": []any{"itemId", "name"},
 			},
 			Indexes: []config.IndexConfig{
 				{

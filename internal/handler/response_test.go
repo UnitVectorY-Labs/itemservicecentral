@@ -15,7 +15,7 @@ func TestWriteErrorIncludesType(t *testing.T) {
 		t.Fatalf("expected status 400, got %d", rec.Code)
 	}
 
-	var body map[string]interface{}
+	var body map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("unmarshal body: %v", err)
 	}
@@ -28,7 +28,7 @@ func TestWriteErrorIncludesType(t *testing.T) {
 }
 
 func TestItemPayloadIncludesType(t *testing.T) {
-	payload := itemPayload(map[string]interface{}{
+	payload := itemPayload(map[string]any{
 		"itemId": "a1",
 		"name":   "test",
 	})

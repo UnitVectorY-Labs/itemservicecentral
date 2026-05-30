@@ -56,7 +56,7 @@ func NewJWTMiddlewareWithKey(key *rsa.PublicKey, issuer, audience string) *JWTMi
 		enabled:  true,
 		issuer:   issuer,
 		audience: audience,
-		keyFunc: func(token *jwt.Token) (interface{}, error) {
+		keyFunc: func(token *jwt.Token) (any, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 			}
@@ -141,7 +141,7 @@ func newJWKSFetcher(url string) *jwksFetcher {
 	}
 }
 
-func (f *jwksFetcher) keyFunc(token *jwt.Token) (interface{}, error) {
+func (f *jwksFetcher) keyFunc(token *jwt.Token) (any, error) {
 	if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 		return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 	}

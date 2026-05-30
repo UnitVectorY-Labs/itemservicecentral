@@ -41,12 +41,12 @@ type ListOptions struct {
 type ItemResult struct {
 	PK   string
 	RK   string
-	Data map[string]interface{}
+	Data map[string]any
 }
 
 // ItemForUpdate holds an item payload and its update timestamp for conditional writes.
 type ItemForUpdate struct {
-	Data      map[string]interface{}
+	Data      map[string]any
 	UpdatedAt time.Time
 }
 
@@ -80,7 +80,7 @@ func decodeCursor(s string) (cursor, error) {
 }
 
 // GetItem retrieves a single item by PK (and optionally RK).
-func (s *Store) GetItem(ctx context.Context, table string, pk string, rk *string) (map[string]interface{}, error) {
+func (s *Store) GetItem(ctx context.Context, table string, pk string, rk *string) (map[string]any, error) {
 	var row *sql.Row
 	if rk != nil {
 		row = s.db.QueryRowContext(ctx,
@@ -102,7 +102,7 @@ func (s *Store) GetItem(ctx context.Context, table string, pk string, rk *string
 		return nil, fmt.Errorf("failed to get item: %w", err)
 	}
 
-	var data map[string]interface{}
+	var data map[string]any
 	if err := json.Unmarshal(dataBytes, &data); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal data: %w", err)
 	}
@@ -133,7 +133,7 @@ func (s *Store) GetItemForUpdate(ctx context.Context, table string, pk string, r
 		return nil, fmt.Errorf("failed to get item for update: %w", err)
 	}
 
-	var data map[string]interface{}
+	var data map[string]any
 	if err := json.Unmarshal(dataBytes, &data); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal data: %w", err)
 	}
@@ -146,7 +146,7 @@ func (s *Store) GetItemForUpdate(ctx context.Context, table string, pk string, r
 
 // PutItem creates or replaces an item (full upsert).
 // The data column stores the payload WITHOUT pk/rk fields.
-func (s *Store) PutItem(ctx context.Context, table string, pk string, rk *string, data map[string]interface{}) error {
+func (s *Store) PutItem(ctx context.Context, table string, pk string, rk *string, data map[string]any) error {
 	dataBytes, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("failed to marshal data: %w", err)
@@ -180,7 +180,7 @@ func (s *Store) PutItem(ctx context.Context, table string, pk string, rk *string
 }
 
 // PutItemIfUnchanged updates an item only when updated_at still matches expectedUpdatedAt.
-func (s *Store) PutItemIfUnchanged(ctx context.Context, table string, pk string, rk *string, data map[string]interface{}, expectedUpdatedAt time.Time) (bool, error) {
+func (s *Store) PutItemIfUnchanged(ctx context.Context, table string, pk string, rk *string, data map[string]any, expectedUpdatedAt time.Time) (bool, error) {
 	dataBytes, err := json.Marshal(data)
 	if err != nil {
 		return false, fmt.Errorf("failed to marshal data: %w", err)
@@ -243,7 +243,7 @@ func (s *Store) DeleteItem(ctx context.Context, table string, pk string, rk *str
 // ListItems lists items in a partition with pagination and optional RK filtering.
 func (s *Store) ListItems(ctx context.Context, table string, pk string, hasRK bool, opts ListOptions) (*ListResult, error) {
 	where := []string{"pk = $1"}
-	args := []interface{}{pk}
+	args := []any{pk}
 	argIdx := 2
 
 	where, args, argIdx = appendRKFilters(where, args, argIdx, hasRK, opts)
@@ -255,7 +255,7 @@ func (s *Store) ListItems(ctx context.Context, table string, pk string, hasRK bo
 // ScanTable performs a full table scan with pagination.
 func (s *Store) ScanTable(ctx context.Context, table string, hasRK bool, opts ListOptions) (*ListResult, error) {
 	var where []string
-	var args []interface{}
+	var args []any
 	argIdx := 1
 
 	where, args, argIdx = appendCursorFilter(where, args, argIdx, hasRK, opts.PageToken, "rk")
@@ -268,7 +268,7 @@ func (s *Store) QueryIndex(ctx context.Context, table string, index IndexQueryCo
 	pkExpr := fmt.Sprintf("data->>%s", quoteStringLiteral(index.PKField))
 
 	where := []string{pkExpr + " = $1"}
-	args := []interface{}{indexPk}
+	args := []any{indexPk}
 	argIdx := 2
 
 	hasRK := index.RKField != ""
@@ -289,7 +289,7 @@ func (s *Store) ScanIndex(ctx context.Context, table string, index IndexQueryCon
 
 	// Only include rows where the index pk field is present (sparse index)
 	where := []string{pkExpr + " IS NOT NULL"}
-	var args []interface{}
+	var args []any
 	argIdx := 1
 
 	hasRK := index.RKField != ""
@@ -326,7 +326,7 @@ func (s *Store) GetItemByIndex(ctx context.Context, table string, index IndexQue
 		return nil, fmt.Errorf("failed to get item by index: %w", err)
 	}
 
-	var data map[string]interface{}
+	var data map[string]any
 	if err := json.Unmarshal(dataBytes, &data); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal data: %w", err)
 	}
@@ -339,7 +339,7 @@ func (s *Store) GetItemByIndex(ctx context.Context, table string, index IndexQue
 }
 
 // queryItems builds and executes a paginated SELECT query.
-func (s *Store) queryItems(ctx context.Context, table string, where []string, args []interface{}, argIdx int, limit int, hasRK bool, pkExpr string, rkExpr string) (*ListResult, error) {
+func (s *Store) queryItems(ctx context.Context, table string, where []string, args []any, argIdx int, limit int, hasRK bool, pkExpr string, rkExpr string) (*ListResult, error) {
 	if limit <= 0 {
 		limit = 50
 	}
@@ -366,7 +366,7 @@ func (s *Store) queryItems(ctx context.Context, table string, where []string, ar
 	type rowData struct {
 		pk   string
 		rk   string
-		data map[string]interface{}
+		data map[string]any
 	}
 	var collected []rowData
 
@@ -378,7 +378,7 @@ func (s *Store) queryItems(ctx context.Context, table string, where []string, ar
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
 
-		var data map[string]interface{}
+		var data map[string]any
 		if err := json.Unmarshal(dataBytes, &data); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal data: %w", err)
 		}
@@ -413,7 +413,7 @@ func (s *Store) queryItems(ctx context.Context, table string, where []string, ar
 }
 
 // appendRKFilters adds range key filter conditions for table queries.
-func appendRKFilters(where []string, args []interface{}, argIdx int, hasRK bool, opts ListOptions) ([]string, []interface{}, int) {
+func appendRKFilters(where []string, args []any, argIdx int, hasRK bool, opts ListOptions) ([]string, []any, int) {
 	if !hasRK {
 		return where, args, argIdx
 	}
@@ -446,7 +446,7 @@ func appendRKFilters(where []string, args []interface{}, argIdx int, hasRK bool,
 }
 
 // appendIndexRKFilters adds range key filter conditions for GSI queries using JSONB expressions.
-func appendIndexRKFilters(where []string, args []interface{}, argIdx int, rkExpr string, opts ListOptions) ([]string, []interface{}, int) {
+func appendIndexRKFilters(where []string, args []any, argIdx int, rkExpr string, opts ListOptions) ([]string, []any, int) {
 	if opts.RKBeginsWith != "" {
 		where = append(where, fmt.Sprintf("%s LIKE $%d", rkExpr, argIdx))
 		args = append(args, opts.RKBeginsWith+"%")
@@ -476,7 +476,7 @@ func appendIndexRKFilters(where []string, args []interface{}, argIdx int, rkExpr
 }
 
 // appendCursorFilter adds cursor-based pagination conditions.
-func appendCursorFilter(where []string, args []interface{}, argIdx int, hasRK bool, cursorStr string, rkExpr string) ([]string, []interface{}, int) {
+func appendCursorFilter(where []string, args []any, argIdx int, hasRK bool, cursorStr string, rkExpr string) ([]string, []any, int) {
 	if cursorStr == "" {
 		return where, args, argIdx
 	}

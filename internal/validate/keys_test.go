@@ -75,7 +75,7 @@ func TestValidateJSONKeys_ValidNestedObject(t *testing.T) {
 		"tags": ["a", "b"],
 		"items": [{"id": 1}, {"id": 2}]
 	}`
-	var data interface{}
+	var data any
 	if err := json.Unmarshal([]byte(raw), &data); err != nil {
 		t.Fatalf("failed to unmarshal JSON: %v", err)
 	}
@@ -86,7 +86,7 @@ func TestValidateJSONKeys_ValidNestedObject(t *testing.T) {
 
 func TestValidateJSONKeys_ValidKeysWithDashAndUnderscore(t *testing.T) {
 	raw := `{"my-key": 1, "my_key": 2, "Key3": 3}`
-	var data interface{}
+	var data any
 	if err := json.Unmarshal([]byte(raw), &data); err != nil {
 		t.Fatalf("failed to unmarshal JSON: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestValidateJSONKeys_ValidKeysWithDashAndUnderscore(t *testing.T) {
 
 func TestValidateJSONKeys_InvalidKeyStartingWithUnderscore(t *testing.T) {
 	raw := `{"valid": {"_hidden": "value"}}`
-	var data interface{}
+	var data any
 	if err := json.Unmarshal([]byte(raw), &data); err != nil {
 		t.Fatalf("failed to unmarshal JSON: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestValidateJSONKeys_InvalidKeyStartingWithUnderscore(t *testing.T) {
 
 func TestValidateJSONKeys_InvalidKeyContainingDot(t *testing.T) {
 	raw := `{"level1": {"level2": {"bad.key": "value"}}}`
-	var data interface{}
+	var data any
 	if err := json.Unmarshal([]byte(raw), &data); err != nil {
 		t.Fatalf("failed to unmarshal JSON: %v", err)
 	}
@@ -127,7 +127,7 @@ func TestValidateJSONKeys_InvalidKeyContainingDot(t *testing.T) {
 
 func TestValidateJSONKeys_InvalidKeyInArray(t *testing.T) {
 	raw := `{"items": [{"good": 1}, {"$bad": 2}]}`
-	var data interface{}
+	var data any
 	if err := json.Unmarshal([]byte(raw), &data); err != nil {
 		t.Fatalf("failed to unmarshal JSON: %v", err)
 	}
@@ -142,7 +142,7 @@ func TestValidateJSONKeys_InvalidKeyInArray(t *testing.T) {
 
 func TestValidateJSONKeys_TopLevelInvalidKey(t *testing.T) {
 	raw := `{" space": "value"}`
-	var data interface{}
+	var data any
 	if err := json.Unmarshal([]byte(raw), &data); err != nil {
 		t.Fatalf("failed to unmarshal JSON: %v", err)
 	}
@@ -156,7 +156,7 @@ func TestValidateJSONKeys_NonObjectInput(t *testing.T) {
 	// Non-object inputs should pass without error
 	inputs := []string{`"hello"`, `42`, `true`, `null`, `[1, 2, 3]`}
 	for _, input := range inputs {
-		var data interface{}
+		var data any
 		if err := json.Unmarshal([]byte(input), &data); err != nil {
 			t.Fatalf("failed to unmarshal %s: %v", input, err)
 		}

@@ -31,7 +31,7 @@ func ValidateKeyValue(value string) error {
 // ValidateJSONKeys recursively validates that all JSON object keys at any
 // depth match the allowed pattern. The input should be the result of
 // json.Unmarshal into interface{}.
-func ValidateJSONKeys(data interface{}) error {
+func ValidateJSONKeys(data any) error {
 	return validateJSONKeys(data, "")
 }
 
@@ -42,9 +42,9 @@ func joinPath(path, key string) string {
 	return path + "." + key
 }
 
-func validateJSONKeys(data interface{}, path string) error {
+func validateJSONKeys(data any, path string) error {
 	switch v := data.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		for key, val := range v {
 			childPath := joinPath(path, key)
 			if !jsonKeyRegexp.MatchString(key) {
@@ -54,7 +54,7 @@ func validateJSONKeys(data interface{}, path string) error {
 				return err
 			}
 		}
-	case []interface{}:
+	case []any:
 		for i, item := range v {
 			elemPath := fmt.Sprintf("%s[%d]", path, i)
 			if err := validateJSONKeys(item, elemPath); err != nil {

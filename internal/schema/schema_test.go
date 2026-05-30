@@ -5,18 +5,18 @@ import (
 	"testing"
 )
 
-func validSchema() map[string]interface{} {
-	return map[string]interface{}{
+func validSchema() map[string]any {
+	return map[string]any{
 		"type": "object",
-		"properties": map[string]interface{}{
-			"name": map[string]interface{}{
+		"properties": map[string]any{
+			"name": map[string]any{
 				"type": "string",
 			},
-			"age": map[string]interface{}{
+			"age": map[string]any{
 				"type": "integer",
 			},
 		},
-		"required":             []interface{}{"name", "age"},
+		"required":             []any{"name", "age"},
 		"additionalProperties": false,
 	}
 }
@@ -37,7 +37,7 @@ func TestValidateValidDocument(t *testing.T) {
 		t.Fatalf("failed to compile schema: %v", err)
 	}
 
-	doc := map[string]interface{}{
+	doc := map[string]any{
 		"name": "Alice",
 		"age":  30,
 	}
@@ -52,7 +52,7 @@ func TestValidateMissingRequiredFields(t *testing.T) {
 		t.Fatalf("failed to compile schema: %v", err)
 	}
 
-	doc := map[string]interface{}{
+	doc := map[string]any{
 		"name": "Alice",
 	}
 	if err := v.Validate(doc); err == nil {
@@ -66,7 +66,7 @@ func TestValidateWrongTypes(t *testing.T) {
 		t.Fatalf("failed to compile schema: %v", err)
 	}
 
-	doc := map[string]interface{}{
+	doc := map[string]any{
 		"name": 123,
 		"age":  "not a number",
 	}
@@ -81,7 +81,7 @@ func TestValidateAdditionalProperties(t *testing.T) {
 		t.Fatalf("failed to compile schema: %v", err)
 	}
 
-	doc := map[string]interface{}{
+	doc := map[string]any{
 		"name":  "Alice",
 		"age":   30,
 		"extra": "not allowed",
@@ -92,7 +92,7 @@ func TestValidateAdditionalProperties(t *testing.T) {
 }
 
 func TestCompileInvalidSchema(t *testing.T) {
-	invalidSchema := map[string]interface{}{
+	invalidSchema := map[string]any{
 		"type": "invalid_type",
 	}
 	_, err := Compile(invalidSchema)
@@ -102,10 +102,10 @@ func TestCompileInvalidSchema(t *testing.T) {
 }
 
 func TestCompileRejectsMissingAdditionalProperties(t *testing.T) {
-	invalidSchema := map[string]interface{}{
+	invalidSchema := map[string]any{
 		"type": "object",
-		"properties": map[string]interface{}{
-			"name": map[string]interface{}{
+		"properties": map[string]any{
+			"name": map[string]any{
 				"type": "string",
 			},
 		},
@@ -117,13 +117,13 @@ func TestCompileRejectsMissingAdditionalProperties(t *testing.T) {
 }
 
 func TestCompileRejectsNestedObjectWithoutAdditionalProperties(t *testing.T) {
-	invalidSchema := map[string]interface{}{
+	invalidSchema := map[string]any{
 		"type": "object",
-		"properties": map[string]interface{}{
-			"profile": map[string]interface{}{
+		"properties": map[string]any{
+			"profile": map[string]any{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"name": map[string]interface{}{
+				"properties": map[string]any{
+					"name": map[string]any{
 						"type": "string",
 					},
 				},
@@ -138,7 +138,7 @@ func TestCompileRejectsNestedObjectWithoutAdditionalProperties(t *testing.T) {
 }
 
 func TestCompileRejectsRefKeyword(t *testing.T) {
-	invalidSchema := map[string]interface{}{
+	invalidSchema := map[string]any{
 		"type":                 "object",
 		"additionalProperties": false,
 		"$ref":                 "#/$defs/foo",
@@ -150,22 +150,22 @@ func TestCompileRejectsRefKeyword(t *testing.T) {
 }
 
 func TestValidateErrorDoesNotLeakSchemaPath(t *testing.T) {
-	v, err := Compile(map[string]interface{}{
+	v, err := Compile(map[string]any{
 		"type":                 "object",
 		"additionalProperties": false,
-		"properties": map[string]interface{}{
-			"status": map[string]interface{}{
+		"properties": map[string]any{
+			"status": map[string]any{
 				"type": "string",
-				"enum": []interface{}{"active", "inactive"},
+				"enum": []any{"active", "inactive"},
 			},
 		},
-		"required": []interface{}{"status"},
+		"required": []any{"status"},
 	})
 	if err != nil {
 		t.Fatalf("failed to compile schema: %v", err)
 	}
 
-	err = v.Validate(map[string]interface{}{
+	err = v.Validate(map[string]any{
 		"status": "invalid",
 	})
 	if err == nil {

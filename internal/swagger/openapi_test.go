@@ -15,15 +15,15 @@ func TestGenerateTableYAML_PKOnly(t *testing.T) {
 			Pattern: "^[A-Za-z_][A-Za-z0-9._-]*$",
 		},
 		AllowTableScan: true,
-		Schema: map[string]interface{}{
+		Schema: map[string]any{
 			"type":                 "object",
 			"additionalProperties": false,
-			"properties": map[string]interface{}{
-				"itemId": map[string]interface{}{"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9._-]*$"},
-				"name":   map[string]interface{}{"type": "string"},
-				"status": map[string]interface{}{"type": "string"},
+			"properties": map[string]any{
+				"itemId": map[string]any{"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9._-]*$"},
+				"name":   map[string]any{"type": "string"},
+				"status": map[string]any{"type": "string"},
 			},
-			"required": []interface{}{"itemId", "name"},
+			"required": []any{"itemId", "name"},
 		},
 		Indexes: []config.IndexConfig{
 			{
@@ -84,15 +84,15 @@ func TestGenerateTableYAML_CompositeAndIndexRangeKey(t *testing.T) {
 			Pattern: "^[A-Za-z_][A-Za-z0-9._-]*$",
 		},
 		AllowTableScan: false,
-		Schema: map[string]interface{}{
+		Schema: map[string]any{
 			"type":                 "object",
 			"additionalProperties": false,
-			"properties": map[string]interface{}{
-				"orderId": map[string]interface{}{"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9._-]*$"},
-				"lineId":  map[string]interface{}{"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9._-]*$"},
-				"status":  map[string]interface{}{"type": "string"},
+			"properties": map[string]any{
+				"orderId": map[string]any{"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9._-]*$"},
+				"lineId":  map[string]any{"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9._-]*$"},
+				"status":  map[string]any{"type": "string"},
 			},
-			"required": []interface{}{"orderId", "lineId"},
+			"required": []any{"orderId", "lineId"},
 		},
 		Indexes: []config.IndexConfig{
 			{
@@ -146,15 +146,15 @@ func TestGenerateTableYAML_PatchSchemaRequiresKeys(t *testing.T) {
 		RangeKey: &config.KeyConfig{
 			Field: "lineId",
 		},
-		Schema: map[string]interface{}{
+		Schema: map[string]any{
 			"type":                 "object",
 			"additionalProperties": false,
-			"properties": map[string]interface{}{
-				"orderId": map[string]interface{}{"type": "string"},
-				"lineId":  map[string]interface{}{"type": "string"},
-				"amount":  map[string]interface{}{"type": "number"},
+			"properties": map[string]any{
+				"orderId": map[string]any{"type": "string"},
+				"lineId":  map[string]any{"type": "string"},
+				"amount":  map[string]any{"type": "number"},
 			},
-			"required": []interface{}{"orderId", "lineId", "amount"},
+			"required": []any{"orderId", "lineId", "amount"},
 		},
 	}
 
@@ -162,7 +162,7 @@ func TestGenerateTableYAML_PatchSchemaRequiresKeys(t *testing.T) {
 	components := asMap(t, doc["components"])
 	schemas := asMap(t, components["schemas"])
 	patchItem := asMap(t, schemas["PatchItem"])
-	required, ok := patchItem["required"].([]interface{})
+	required, ok := patchItem["required"].([]any)
 	if !ok {
 		t.Fatalf("expected PatchItem.required")
 	}
@@ -184,7 +184,7 @@ func TestGenerateTableYAML_WithJWTSecurity(t *testing.T) {
 		PrimaryKey: config.KeyConfig{
 			Field: "itemId",
 		},
-		Schema: map[string]interface{}{
+		Schema: map[string]any{
 			"type":                 "object",
 			"additionalProperties": false,
 		},
@@ -198,14 +198,14 @@ func TestGenerateTableYAML_WithJWTSecurity(t *testing.T) {
 		t.Fatalf("expected bearer auth security scheme, got: %#v", bearer)
 	}
 
-	security, ok := doc["security"].([]interface{})
+	security, ok := doc["security"].([]any)
 	if !ok || len(security) == 0 {
 		t.Fatalf("expected top-level security requirements, got: %#v", doc["security"])
 	}
 
 	schemas := asMap(t, components["schemas"])
 	listResponse := asMap(t, schemas["ListResponse"])
-	required, ok := listResponse["required"].([]interface{})
+	required, ok := listResponse["required"].([]any)
 	if !ok {
 		t.Fatalf("expected ListResponse.required")
 	}
@@ -216,7 +216,7 @@ func TestGenerateTableYAML_WithJWTSecurity(t *testing.T) {
 	itemResponse := asMap(t, schemas["ItemResponse"])
 	itemProps := asMap(t, itemResponse["properties"])
 	itemType := asMap(t, itemProps["_type"])
-	itemTypeEnum, ok := itemType["enum"].([]interface{})
+	itemTypeEnum, ok := itemType["enum"].([]any)
 	if !ok || len(itemTypeEnum) != 1 || itemTypeEnum[0] != itemTypeName {
 		t.Fatalf("expected ItemResponse _type enum [%s], got %#v", itemTypeName, itemType["enum"])
 	}
@@ -224,7 +224,7 @@ func TestGenerateTableYAML_WithJWTSecurity(t *testing.T) {
 	errorResponse := asMap(t, schemas["ErrorResponse"])
 	errorProps := asMap(t, errorResponse["properties"])
 	errorType := asMap(t, errorProps["_type"])
-	errorTypeEnum, ok := errorType["enum"].([]interface{})
+	errorTypeEnum, ok := errorType["enum"].([]any)
 	if !ok || len(errorTypeEnum) != 1 || errorTypeEnum[0] != errorTypeName {
 		t.Fatalf("expected ErrorResponse _type enum [%s], got %#v", errorTypeName, errorType["enum"])
 	}
@@ -237,17 +237,17 @@ func TestGenerateTableYAML_PathParamsPreferEnumConstraint(t *testing.T) {
 			Field:   "userId",
 			Pattern: "^u[0-9]+$",
 		},
-		Schema: map[string]interface{}{
+		Schema: map[string]any{
 			"type":                 "object",
 			"additionalProperties": false,
-			"properties": map[string]interface{}{
-				"userId": map[string]interface{}{
+			"properties": map[string]any{
+				"userId": map[string]any{
 					"type":    "string",
 					"pattern": "^u[0-9]+$",
 				},
-				"status": map[string]interface{}{
+				"status": map[string]any{
 					"type": "string",
-					"enum": []interface{}{"active", "inactive"},
+					"enum": []any{"active", "inactive"},
 				},
 			},
 		},
@@ -277,7 +277,7 @@ func TestGenerateTableYAML_PathParamsPreferEnumConstraint(t *testing.T) {
 	if _, ok := statusSchema["pattern"]; ok {
 		t.Fatalf("did not expect enum-constrained path parameter to include pattern")
 	}
-	enumVals, ok := statusSchema["enum"].([]interface{})
+	enumVals, ok := statusSchema["enum"].([]any)
 	if !ok || len(enumVals) != 2 || enumVals[0] != "active" || enumVals[1] != "inactive" {
 		t.Fatalf("expected enum [active inactive], got %#v", statusSchema["enum"])
 	}
@@ -289,7 +289,7 @@ func TestProviderYAML(t *testing.T) {
 		PrimaryKey: config.KeyConfig{
 			Field: "itemId",
 		},
-		Schema: map[string]interface{}{
+		Schema: map[string]any{
 			"type":                 "object",
 			"additionalProperties": false,
 		},
@@ -324,53 +324,53 @@ func TestProviderYAML(t *testing.T) {
 	}
 }
 
-func parseDoc(t *testing.T, table config.TableConfig, jwtEnabled bool) map[string]interface{} {
+func parseDoc(t *testing.T, table config.TableConfig, jwtEnabled bool) map[string]any {
 	t.Helper()
 	out, err := GenerateTableYAML(table, jwtEnabled)
 	if err != nil {
 		t.Fatalf("generate yaml: %v", err)
 	}
-	var doc map[string]interface{}
+	var doc map[string]any
 	if err := yaml.Unmarshal(out, &doc); err != nil {
 		t.Fatalf("unmarshal yaml: %v", err)
 	}
 	return doc
 }
 
-func asMap(t *testing.T, value interface{}) map[string]interface{} {
+func asMap(t *testing.T, value any) map[string]any {
 	t.Helper()
-	result, ok := value.(map[string]interface{})
+	result, ok := value.(map[string]any)
 	if !ok {
 		t.Fatalf("expected map, got %T", value)
 	}
 	return result
 }
 
-func requirePath(t *testing.T, paths map[string]interface{}, path string) {
+func requirePath(t *testing.T, paths map[string]any, path string) {
 	t.Helper()
 	if _, ok := paths[path]; !ok {
 		t.Fatalf("expected path %q in OpenAPI document", path)
 	}
 }
 
-func forbiddenPath(t *testing.T, paths map[string]interface{}, path string) {
+func forbiddenPath(t *testing.T, paths map[string]any, path string) {
 	t.Helper()
 	if _, ok := paths[path]; ok {
 		t.Fatalf("did not expect path %q in OpenAPI document", path)
 	}
 }
 
-func getOperation(t *testing.T, paths map[string]interface{}, path string, method string) map[string]interface{} {
+func getOperation(t *testing.T, paths map[string]any, path string, method string) map[string]any {
 	t.Helper()
 	pathItem := asMap(t, paths[path])
 	op := asMap(t, pathItem[method])
 	return op
 }
 
-func parameterNames(t *testing.T, operation map[string]interface{}) map[string]bool {
+func parameterNames(t *testing.T, operation map[string]any) map[string]bool {
 	t.Helper()
 	params := map[string]bool{}
-	paramList, ok := operation["parameters"].([]interface{})
+	paramList, ok := operation["parameters"].([]any)
 	if !ok {
 		return params
 	}
@@ -384,9 +384,9 @@ func parameterNames(t *testing.T, operation map[string]interface{}) map[string]b
 	return params
 }
 
-func parameterByName(t *testing.T, operation map[string]interface{}, name string) map[string]interface{} {
+func parameterByName(t *testing.T, operation map[string]any, name string) map[string]any {
 	t.Helper()
-	paramList, ok := operation["parameters"].([]interface{})
+	paramList, ok := operation["parameters"].([]any)
 	if !ok {
 		t.Fatalf("expected parameters in operation")
 	}

@@ -12,9 +12,9 @@ import (
 
 // listResponse is the JSON envelope for list endpoints.
 type listResponse struct {
-	Type  string                   `json:"_type"`
-	Items []map[string]interface{} `json:"items"`
-	Meta  listMeta                 `json:"_meta"`
+	Type  string           `json:"_type"`
+	Items []map[string]any `json:"items"`
+	Meta  listMeta         `json:"_meta"`
 }
 
 // listMeta holds pagination tokens for list responses.
@@ -243,8 +243,8 @@ func buildListMeta(result *database.ListResult) listMeta {
 }
 
 // projectItems injects keys and applies projection to each item in the list.
-func projectItems(r *http.Request, items []database.ItemResult, th *tableHandler, pkField, rkField string) []map[string]interface{} {
-	result := make([]map[string]interface{}, len(items))
+func projectItems(r *http.Request, items []database.ItemResult, th *tableHandler, pkField, rkField string) []map[string]any {
+	result := make([]map[string]any, len(items))
 	for i, item := range items {
 		rkValue := ""
 		if rkField != "" {
@@ -257,8 +257,8 @@ func projectItems(r *http.Request, items []database.ItemResult, th *tableHandler
 }
 
 // projectIndexItems injects keys and applies index projection then field projection.
-func projectIndexItems(r *http.Request, items []database.ItemResult, th *tableHandler, pkField, rkField string, idx config.IndexConfig) []map[string]interface{} {
-	result := make([]map[string]interface{}, len(items))
+func projectIndexItems(r *http.Request, items []database.ItemResult, th *tableHandler, pkField, rkField string, idx config.IndexConfig) []map[string]any {
+	result := make([]map[string]any, len(items))
 	for i, item := range items {
 		rkValue := ""
 		if rkField != "" {
@@ -271,7 +271,7 @@ func projectIndexItems(r *http.Request, items []database.ItemResult, th *tableHa
 }
 
 // applyIndexProjection applies index projection first, then field-level projection.
-func applyIndexProjection(r *http.Request, data map[string]interface{}, th *tableHandler, idx config.IndexConfig) map[string]interface{} {
+func applyIndexProjection(r *http.Request, data map[string]any, th *tableHandler, idx config.IndexConfig) map[string]any {
 	rkField := ""
 	if th.config.RangeKey != nil {
 		rkField = th.config.RangeKey.Field

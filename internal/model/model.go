@@ -1,11 +1,13 @@
 package model
 
+import "maps"
+
 import "strings"
 
 // StripKeys removes the pk and rk field names from data for storage.
 // Returns a new map without the specified keys.
-func StripKeys(data map[string]interface{}, pkField string, rkField string) map[string]interface{} {
-	result := make(map[string]interface{}, len(data))
+func StripKeys(data map[string]any, pkField string, rkField string) map[string]any {
+	result := make(map[string]any, len(data))
 	for k, v := range data {
 		if k == pkField {
 			continue
@@ -20,11 +22,9 @@ func StripKeys(data map[string]interface{}, pkField string, rkField string) map[
 
 // InjectKeys adds pk and rk values back into the data with the configured field names.
 // Returns a new map with keys added.
-func InjectKeys(data map[string]interface{}, pkField string, pkValue string, rkField string, rkValue string) map[string]interface{} {
-	result := make(map[string]interface{}, len(data)+2)
-	for k, v := range data {
-		result[k] = v
-	}
+func InjectKeys(data map[string]any, pkField string, pkValue string, rkField string, rkValue string) map[string]any {
+	result := make(map[string]any, len(data)+2)
+	maps.Copy(result, data)
 	result[pkField] = pkValue
 	if rkField != "" {
 		result[rkField] = rkValue
@@ -39,14 +39,14 @@ func InjectKeys(data map[string]interface{}, pkField string, pkValue string, rkF
 //   - otherwise, set the key in target to the patch value
 //
 // Returns the merged document (modifies target in place).
-func MergePatch(target, patch map[string]interface{}) map[string]interface{} {
+func MergePatch(target, patch map[string]any) map[string]any {
 	for k, patchVal := range patch {
 		if patchVal == nil {
 			delete(target, k)
 			continue
 		}
-		if patchObj, ok := patchVal.(map[string]interface{}); ok {
-			if targetObj, ok := target[k].(map[string]interface{}); ok {
+		if patchObj, ok := patchVal.(map[string]any); ok {
+			if targetObj, ok := target[k].(map[string]any); ok {
 				target[k] = MergePatch(targetObj, patchObj)
 				continue
 			}
@@ -58,7 +58,7 @@ func MergePatch(target, patch map[string]interface{}) map[string]interface{} {
 
 // ProjectFields returns a new map containing only the specified fields.
 // Always includes pkField and rkField (if non-empty).
-func ProjectFields(data map[string]interface{}, fields []string, pkField string, rkField string) map[string]interface{} {
+func ProjectFields(data map[string]any, fields []string, pkField string, rkField string) map[string]any {
 	allowed := make(map[string]bool, len(fields)+2)
 	for _, f := range fields {
 		allowed[f] = true
@@ -68,7 +68,7 @@ func ProjectFields(data map[string]interface{}, fields []string, pkField string,
 		allowed[rkField] = true
 	}
 
-	result := make(map[string]interface{})
+	result := make(map[string]any)
 	for k, v := range data {
 		if allowed[k] {
 			result[k] = v

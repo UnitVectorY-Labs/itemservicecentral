@@ -17,17 +17,17 @@ func TestPatchRequiresPrimaryKeyInBody(t *testing.T) {
 				Field:   "itemId",
 				Pattern: "^[A-Za-z_][A-Za-z0-9._-]*$",
 			},
-			Schema: map[string]interface{}{
+			Schema: map[string]any{
 				"type":                 "object",
 				"additionalProperties": false,
-				"properties": map[string]interface{}{
-					"itemId": map[string]interface{}{
+				"properties": map[string]any{
+					"itemId": map[string]any{
 						"type":    "string",
 						"pattern": "^[A-Za-z_][A-Za-z0-9._-]*$",
 					},
-					"name": map[string]interface{}{"type": "string"},
+					"name": map[string]any{"type": "string"},
 				},
-				"required": []interface{}{"itemId"},
+				"required": []any{"itemId"},
 			},
 		},
 	})
@@ -60,20 +60,20 @@ func TestPatchRequiresRangeKeyInBody(t *testing.T) {
 				Field:   "lineId",
 				Pattern: "^[A-Za-z_][A-Za-z0-9._-]*$",
 			},
-			Schema: map[string]interface{}{
+			Schema: map[string]any{
 				"type":                 "object",
 				"additionalProperties": false,
-				"properties": map[string]interface{}{
-					"orderId": map[string]interface{}{
+				"properties": map[string]any{
+					"orderId": map[string]any{
 						"type":    "string",
 						"pattern": "^[A-Za-z_][A-Za-z0-9._-]*$",
 					},
-					"lineId": map[string]interface{}{
+					"lineId": map[string]any{
 						"type":    "string",
 						"pattern": "^[A-Za-z_][A-Za-z0-9._-]*$",
 					},
 				},
-				"required": []interface{}{"orderId", "lineId"},
+				"required": []any{"orderId", "lineId"},
 			},
 		},
 	})

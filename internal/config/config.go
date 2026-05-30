@@ -41,7 +41,7 @@ type TableConfig struct {
 	PrimaryKey     KeyConfig     `yaml:"primaryKey"`
 	RangeKey       *KeyConfig    `yaml:"rangeKey"`
 	AllowTableScan bool          `yaml:"allowTableScan"`
-	Schema         interface{}   `yaml:"schema"`
+	Schema         any           `yaml:"schema"`
 	Indexes        []IndexConfig `yaml:"indexes"`
 }
 
@@ -211,7 +211,7 @@ func Validate(cfg *Config) error {
 }
 
 func validateSchemaKeys(t TableConfig) error {
-	schemaMap, ok := t.Schema.(map[string]interface{})
+	schemaMap, ok := t.Schema.(map[string]any)
 	if !ok {
 		return nil
 	}
@@ -219,7 +219,7 @@ func validateSchemaKeys(t TableConfig) error {
 	if !ok {
 		return nil
 	}
-	props, ok := propsRaw.(map[string]interface{})
+	props, ok := propsRaw.(map[string]any)
 	if !ok {
 		return nil
 	}
@@ -235,12 +235,12 @@ func validateSchemaKeys(t TableConfig) error {
 	return nil
 }
 
-func validateSchemaKeyField(tableName string, props map[string]interface{}, field, keyLabel string) error {
+func validateSchemaKeyField(tableName string, props map[string]any, field, keyLabel string) error {
 	propRaw, ok := props[field]
 	if !ok {
 		return fmt.Errorf("table %q: schema must define property %q for %s field", tableName, field, keyLabel)
 	}
-	prop, ok := propRaw.(map[string]interface{})
+	prop, ok := propRaw.(map[string]any)
 	if !ok {
 		return fmt.Errorf("table %q: schema must define property %q for %s field", tableName, field, keyLabel)
 	}
