@@ -1,6 +1,6 @@
 module github.com/UnitVectorY-Labs/itemservicecentral
 
-go 1.26 // GOVERSION
+go 1.27 // GOVERSION
 
 require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
