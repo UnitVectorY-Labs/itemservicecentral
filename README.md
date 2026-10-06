@@ -1,3 +1,5 @@
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT) [![Work In Progress](https://img.shields.io/badge/Status-Work%20In%20Progress-yellow)](https://guide.unitvectorylabs.com/bestpractices/status/#work-in-progress) 
+
 # itemservicecentral
 
 A configuration driven service that exposes JSON Schema validated CRUD and index style query REST endpoints backed by PostgreSQL JSONB with JWT based access control.
