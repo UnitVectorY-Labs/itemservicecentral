@@ -1,21 +1,22 @@
 
+# Commands for itemservicecentral
+default:
+  @just --list
+# Build itemservicecentral with Go
+build:
+  go build ./...
+
+# Run tests for itemservicecentral with Go
+test:
+  go clean -testcache
+  go test ./...
+
+# Repository-specific commands
 set dotenv-load := true
 
 DB_USER := env("DB_USER")
 DB_PASSWORD := env("DB_PASSWORD")
 DB_NAME := env("DB_NAME")
-
-# List all available commands
-default:
-  @just --list
-
-# Build the Go application
-build:
-  go build ./...
-
-# Run the Go tests
-test:
-  go test ./...
 
 # Run the validation checks
 validate:
