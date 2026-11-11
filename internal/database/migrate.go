@@ -2,7 +2,7 @@ package database
 
 import (
 	"database/sql"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"log"
 	"strings"

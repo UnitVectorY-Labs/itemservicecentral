@@ -4,7 +4,8 @@ import (
 	"context"
 	"crypto/rsa"
 	"encoding/base64"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
 	"io"
 	"math/big"
@@ -118,7 +119,7 @@ func (m *JWTMiddleware) Handler(next http.Handler) http.Handler {
 func writeJSONError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]string{
+	_ = json.MarshalEncode(jsontext.NewEncoder(w), map[string]string{
 		"_type":  "error",
 		"_error": message,
 	})
