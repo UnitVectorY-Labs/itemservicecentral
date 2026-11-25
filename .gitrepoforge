@@ -9,8 +9,6 @@ config:
   release_github: false
   status: "wip"
   justfile: true
-  codecov:
-    enabled: true
   docs:
     enabled: false
   gitignore:
